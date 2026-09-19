@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 60" role="img" aria-label="Drapeau du Cameroun">
+  <title>Cameroun</title>
+  <rect width="30" height="60" x="0" y="0" fill="#007a5e"/>
+  <rect width="30" height="60" x="30" y="0" fill="#ce1126"/>
+  <rect width="30" height="60" x="60" y="0" fill="#fcd116"/>
+  <polygon fill="#fcd116" points="45,19 47.59,26.44 55.46,26.6 49.18,31.36 51.47,38.9 45,34.4 38.53,38.9 40.82,31.36 34.54,26.6 42.41,26.44"/>
+</svg>
