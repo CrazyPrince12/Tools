@@ -444,6 +444,10 @@ test("le rate limit protège l'amont", async () => {
 test("le mode démo répond sans toucher à l'amont", async () => {
   const ctx = await startMockRuntime({ env: { DEMO_MODE: "1" } });
   try {
+    // Le catalogue lui-même ne doit pas déclencher d'appel amont en démo.
+    const catalog = await (await fetch(`${ctx.base}/api/catalog`)).json();
+    assert.equal(catalog.source, "fallback");
+
     const res = await fetch(`${ctx.base}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
