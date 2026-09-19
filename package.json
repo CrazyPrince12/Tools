@@ -1,0 +1,43 @@
+{
+  "name": "venice",
+  "version": "2.0.0",
+  "description": "Venice — client web de chat.dphn.ai (Dolphin) : passerelle Node + Playwright qui résout le challenge Cloudflare et re-streame les réponses SSE. Créé par Crazy Prince.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "demo": "DEMO_MODE=1 node server.js",
+    "test": "node --test tests/venice.test.mjs",
+    "test:real": "node tests/real-check.mjs",
+    "mock": "node tests/mock-dolphin.mjs",
+    "browser:install": "playwright install --with-deps chromium"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CrazyPrince12/Tools.git"
+  },
+  "keywords": [
+    "venice",
+    "dolphin",
+    "chat.dphn.ai",
+    "cloudflare-bypass",
+    "playwright",
+    "sse",
+    "scraping",
+    "render"
+  ],
+  "author": "Crazy Prince",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/CrazyPrince12/Tools/issues"
+  },
+  "homepage": "https://github.com/CrazyPrince12/Tools#readme",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "playwright": "^1.63.0"
+  }
+}

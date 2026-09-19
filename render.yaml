@@ -1,0 +1,40 @@
+# ---------------------------------------------------------------------------
+# Blueprint Render — https://render.com/docs/blueprint-spec
+#
+# Venice = serveur Node + Chromium headless (résolution du challenge
+# Cloudflare). Le runtime DOCKER est recommandé : l'image installe Chromium et
+# ses dépendances système, ce qu'un build Node natif ne peut pas faire.
+#
+# ⚠️ Dimensionnement : Chromium consomme ~400 Mo de RAM. Le plan `free`
+# (512 Mo) peut suffire pour un usage très occasionnel, mais `starter` (2 Go)
+# est le réglage fiable.
+# ---------------------------------------------------------------------------
+services:
+  - type: web
+    name: venice
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Session Cloudflare : cookies rafraîchis toutes les 12 min par défaut.
+      - key: DOLPHIN_BASE_URL
+        value: https://chat.dphn.ai
+      - key: DOLPHIN_COOKIE_TTL_MS
+        value: "1200000"
+      - key: DOLPHIN_REFRESH_INTERVAL_MS
+        value: "720000"
+      # Garde-fous d'usage (client raisonnable pour l'amont).
+      - key: VENICE_RATE_LIMIT
+        value: "30"
+      - key: VENICE_RATE_WINDOW_MS
+        value: "60000"
+      # Mode démo : passez à 1 pour tester l'interface sans toucher à Dolphin.
+      - key: DEMO_MODE
+        value: "0"
+      # Jeton des routes d'administration (POST /api/session/refresh).
+      - key: ADMIN_TOKEN
+        sync: false # vous le saisissez dans le dashboard, il n'entre jamais dans le repo

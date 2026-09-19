@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Venice">
+  <title>Venice</title>
+  <defs>
+    <linearGradient id="veniceSea" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0b3a5c"/>
+      <stop offset="55%" stop-color="#062b45"/>
+      <stop offset="100%" stop-color="#041c2c"/>
+    </linearGradient>
+    <linearGradient id="veniceSkin" x1="0" y1="0" x2="0.9" y2="1">
+      <stop offset="0%" stop-color="#8ff7ea"/>
+      <stop offset="45%" stop-color="#35e0d4"/>
+      <stop offset="100%" stop-color="#2a8fe0"/>
+    </linearGradient>
+  </defs>
+
+  <circle cx="64" cy="64" r="64" fill="url(#veniceSea)"/>
+  <circle cx="64" cy="64" r="62" fill="none" stroke="#35e0d4" stroke-opacity="0.35" stroke-width="2"/>
+
+  <!-- Vagues -->
+  <path d="M6,96 C22,88 34,104 50,96 C66,88 78,104 94,96 C106,90 114,96 122,94"
+        fill="none" stroke="#35e0d4" stroke-opacity="0.35" stroke-width="4" stroke-linecap="round"/>
+  <path d="M10,108 C26,100 38,116 54,108 C70,100 82,116 98,108 C108,103 114,107 120,106"
+        fill="none" stroke="#3aa0ff" stroke-opacity="0.25" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- Bulles -->
+  <circle cx="26" cy="34" r="4" fill="#7ff5d0" fill-opacity="0.45"/>
+  <circle cx="36" cy="22" r="2.4" fill="#7ff5d0" fill-opacity="0.35"/>
+  <circle cx="18" cy="52" r="2" fill="#7ff5d0" fill-opacity="0.3"/>
+
+  <!-- Dauphin -->
+  <g transform="translate(13,17) scale(0.74)">
+    <path fill="url(#veniceSkin)" d="M124,63
+      C117,60 111,59 105,59
+      C99,46 91,40 79,40
+      C69,40 60,43 54,47
+      C53,39 49,32 43,28
+      C45,36 43,43 37,49
+      C35,51 33,52 32,54
+      C27,47 20,42 10,38
+      C18,48 25,55 30,64
+      C25,72 18,79 10,86
+      C20,80 27,74 34,70
+      C42,76 50,79 58,79
+      C66,79 72,78 76,76
+      C74,85 69,92 61,98
+      C71,92 77,85 81,75
+      C89,73 94,71 99,69
+      C105,67 111,65 116,64
+      C120,63 122,63 124,63 Z"/>
+    <circle cx="97" cy="57" r="3.4" fill="#04222f"/>
+  </g>
+</svg>

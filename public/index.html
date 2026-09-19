@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="fr" data-theme="deep">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Venice — Chat Dolphin</title>
+  <meta name="description" content="Venice — le chatbot créé par Crazy Prince : les modèles et les rôles du chat Dolphin, dans une interface fluide." />
+  <meta name="author" content="Crazy Prince" />
+  <meta name="theme-color" content="#041c2c" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Venice" />
+  <meta property="og:title" content="Venice — chatbot par Crazy Prince" />
+  <meta property="og:description" content="Discute avec Venice : code, tech, recherche, idées. Créé par Crazy Prince." />
+  <meta property="og:image" content="/assets/venice.svg" />
+
+  <link rel="icon" href="/assets/venice.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/assets/venice.svg" />
+  <link rel="stylesheet" href="/style.css?v=20260919" />
+
+  <script>
+    // Applique le thème avant le rendu pour éviter le flash.
+    (function () {
+      try {
+        var saved = localStorage.getItem("venice.theme");
+        document.documentElement.dataset.theme = saved === "lagoon" ? "lagoon" : "deep";
+      } catch (error) {
+        document.documentElement.dataset.theme = "deep";
+      }
+    })();
+  </script>
+</head>
+<body>
+  <!-- Décor : océan animé (GSAP quand disponible, CSS sinon). -->
+  <div class="ocean" aria-hidden="true">
+    <div class="ocean-glow"></div>
+    <svg class="ocean-waves" viewBox="0 0 1440 320" preserveAspectRatio="none">
+      <path class="wave wave-1" d="M0,192 C240,120 480,264 720,192 C960,120 1200,264 1440,192 L1440,320 L0,320 Z"></path>
+      <path class="wave wave-2" d="M0,224 C240,160 480,288 720,224 C960,160 1200,288 1440,224 L1440,320 L0,320 Z"></path>
+      <path class="wave wave-3" d="M0,256 C240,208 480,304 720,256 C960,208 1200,304 1440,256 L1440,320 L0,320 Z"></path>
+    </svg>
+    <div class="bubbles" id="bubbles"></div>
+  </div>
+
+  <!-- Icônes SVG réutilisées dans toute l'interface (aucun emoji). -->
+  <svg class="svg-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+    <defs>
+      <linearGradient id="skin" x1="0" y1="0" x2="0.9" y2="1">
+        <stop offset="0%" stop-color="#8ff7ea"/>
+        <stop offset="45%" stop-color="#35e0d4"/>
+        <stop offset="100%" stop-color="#2a8fe0"/>
+      </linearGradient>
+
+      <symbol id="icon-dolphin" viewBox="0 0 128 128">
+        <path fill="url(#skin)" d="M124,63 C117,60 111,59 105,59 C99,46 91,40 79,40 C69,40 60,43 54,47
+                 C53,39 49,32 43,28 C45,36 43,43 37,49 C35,51 33,52 32,54
+                 C27,47 20,42 10,38 C18,48 25,55 30,64 C25,72 18,79 10,86
+                 C20,80 27,74 34,70 C42,76 50,79 58,79 C66,79 72,78 76,76
+                 C74,85 69,92 61,98 C71,92 77,85 81,75 C89,73 94,71 99,69
+                 C105,67 111,65 116,64 C120,63 122,63 124,63 Z"/>
+        <circle cx="97" cy="57" r="3.4" fill="#04222f"/>
+      </symbol>
+
+      <symbol id="icon-user" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2c-4.42 0-8 2.24-8 5v1a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-1c0-2.76-3.58-5-8-5Z"/>
+      </symbol>
+
+      <symbol id="icon-send" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M3.4 20.4 21.85 12.6a.65.65 0 0 0 0-1.2L3.4 3.6a.65.65 0 0 0-.9.72l1.5 6.02c.06.25.27.44.53.47l8.9 1.19-8.9 1.19a.65.65 0 0 0-.53.47l-1.5 6.02a.65.65 0 0 0 .9.72Z"/>
+      </symbol>
+
+      <symbol id="icon-trash" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M9 3a1 1 0 0 0-1 1v1H4.5a1 1 0 1 0 0 2H5l.86 12.07A2 2 0 0 0 7.85 21h8.3a2 2 0 0 0 1.99-1.93L19 7h.5a1 1 0 1 0 0-2H16V4a1 1 0 0 0-1-1H9Zm1 2h4v1h-4V5Zm-.2 4a.8.8 0 0 1 .8.8v7.4a.8.8 0 0 1-1.6 0V9.8a.8.8 0 0 1 .8-.8Zm4.4 0a.8.8 0 0 1 .8.8v7.4a.8.8 0 0 1-1.6 0V9.8a.8.8 0 0 1 .8-.8Z"/>
+      </symbol>
+
+      <symbol id="icon-copy" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M9 2a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V6.83a2 2 0 0 0-.59-1.42l-2.82-2.83A2 2 0 0 0 15.17 2H9Zm-4 4a1 1 0 0 0-1 1v13a2 2 0 0 0 2 2h9a1 1 0 1 0 0-2H7a1 1 0 0 1-1-1V7a1 1 0 0 0-1-1Z"/>
+      </symbol>
+
+      <symbol id="icon-check" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M9.55 17.6 4.4 12.45a1 1 0 0 1 1.42-1.42l3.73 3.74 8.63-8.63a1 1 0 1 1 1.42 1.42L9.55 17.6Z"/>
+      </symbol>
+
+      <symbol id="icon-alert" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M12 2.5a1.6 1.6 0 0 1 1.4.82l9 15.6A1.6 1.6 0 0 1 21 21.4H3a1.6 1.6 0 0 1-1.4-2.48l9-15.6A1.6 1.6 0 0 1 12 2.5Zm0 5.9a1 1 0 0 0-1 1v4.4a1 1 0 1 0 2 0V9.4a1 1 0 0 0-1-1Zm0 8.1a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4Z"/>
+      </symbol>
+
+      <symbol id="icon-close" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M6.4 5A1 1 0 0 0 5 6.4l5.6 5.6L5 17.6A1 1 0 1 0 6.4 19l5.6-5.6 5.6 5.6a1 1 0 0 0 1.4-1.4L13.4 12 19 6.4A1 1 0 0 0 17.6 5L12 10.6 6.4 5Z"/>
+      </symbol>
+
+      <symbol id="icon-moon" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M21 13.3A9 9 0 1 1 10.7 3a7.2 7.2 0 0 0 10.3 10.3Z"/>
+      </symbol>
+
+      <symbol id="icon-sun" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0-14a1 1 0 0 1 1 1v1.2a1 1 0 1 1-2 0V4a1 1 0 0 1 1-1Zm0 15.8a1 1 0 0 1 1 1V21a1 1 0 1 1-2 0v-1.2a1 1 0 0 1 1-1ZM3 12a1 1 0 0 1 1-1h1.2a1 1 0 1 1 0 2H4a1 1 0 0 1-1-1Zm15.8 0a1 1 0 0 1 1-1H21a1 1 0 1 1 0 2h-1.2a1 1 0 0 1-1-1ZM5.6 5.6a1 1 0 0 1 1.4 0l.9.9a1 1 0 0 1-1.4 1.4l-.9-.9a1 1 0 0 1 0-1.4Zm10.5 10.5a1 1 0 0 1 1.4 0l.9.9a1 1 0 0 1-1.4 1.4l-.9-.9a1 1 0 0 1 0-1.4Zm2.3-10.5a1 1 0 0 1 0 1.4l-.9.9a1 1 0 1 1-1.4-1.4l.9-.9a1 1 0 0 1 1.4 0ZM7.9 16.1a1 1 0 0 1 0 1.4l-.9.9a1 1 0 0 1-1.4-1.4l.9-.9a1 1 0 0 1 1.4 0Z"/>
+      </symbol>
+
+      <!-- Menu historique -->
+      <symbol id="icon-menu" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M4 6.5a1.25 1.25 0 0 1 1.25-1.25h13.5a1.25 1.25 0 1 1 0 2.5H5.25A1.25 1.25 0 0 1 4 6.5Zm0 5.5A1.25 1.25 0 0 1 5.25 10.75h13.5a1.25 1.25 0 1 1 0 2.5H5.25A1.25 1.25 0 0 1 4 12Zm1.25 4.25a1.25 1.25 0 1 0 0 2.5h8.5a1.25 1.25 0 1 0 0-2.5h-8.5Z"/>
+      </symbol>
+
+      <symbol id="icon-plus" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M12 4a1.2 1.2 0 0 1 1.2 1.2v5.6h5.6a1.2 1.2 0 1 1 0 2.4h-5.6v5.6a1.2 1.2 0 1 1-2.4 0v-5.6H5.2a1.2 1.2 0 1 1 0-2.4h5.6V5.2A1.2 1.2 0 0 1 12 4Z"/>
+      </symbol>
+
+      <symbol id="icon-search" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M10.5 3a7.5 7.5 0 1 0 4.55 13.46l4.24 4.25a1.2 1.2 0 0 0 1.7-1.7l-4.24-4.25A7.5 7.5 0 0 0 10.5 3Zm-5.1 7.5a5.1 5.1 0 1 1 10.2 0 5.1 5.1 0 0 1-10.2 0Z"/>
+      </symbol>
+
+      <symbol id="icon-pen" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M15.7 2.9a2.2 2.2 0 0 1 3.1 0l2.3 2.3a2.2 2.2 0 0 1 0 3.1l-9.2 9.2-4.2 1.1a1 1 0 0 1-1.2-1.2l1.1-4.2 9.2-9.2Zm1.6 1.6-8.4 8.4-.7 2.6 2.6-.7 8.4-8.4-1.9-1.9ZM4 20.4a1 1 0 0 1 1-1h14a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1Z"/>
+      </symbol>
+
+      <symbol id="icon-chip" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M9 2a1 1 0 0 1 1 1v1h4V3a1 1 0 1 1 2 0v1h1a3 3 0 0 1 3 3v1h1a1 1 0 1 1 0 2h-1v4h1a1 1 0 1 1 0 2h-1v1a3 3 0 0 1-3 3h-1v1a1 1 0 1 1-2 0v-1h-4v1a1 1 0 1 1-2 0v-1H7a3 3 0 0 1-3-3v-1H3a1 1 0 1 1 0-2h1v-4H3a1 1 0 1 1 0-2h1V7a3 3 0 0 1 3-3h1V3a1 1 0 0 1 1-1Zm-2 6v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1Z"/>
+      </symbol>
+
+      <symbol id="icon-brain" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M9.2 2.5a3.7 3.7 0 0 0-3.6 2.8A3.3 3.3 0 0 0 3 8.4a3.3 3.3 0 0 0 .6 1.9 3.4 3.4 0 0 0 .2 4.6 3.6 3.6 0 0 0 2.9 4.7 3.5 3.5 0 0 0 6.3 1.2V3.9a3.7 3.7 0 0 0-3.8-1.4Zm5.6 0A3.7 3.7 0 0 1 18.4 3.9V21a3.5 3.5 0 0 1-3.6-1.4V2.5Z"/>
+      </symbol>
+
+      <symbol id="icon-spark" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M12 2.4c.4 0 .8.3.9.7l1 3.4a4 4 0 0 0 2.6 2.6l3.4 1a.95.95 0 0 1 0 1.8l-3.4 1a4 4 0 0 0-2.6 2.6l-1 3.4a.95.95 0 0 1-1.8 0l-1-3.4a4 4 0 0 0-2.6-2.6l-3.4-1a.95.95 0 0 1 0-1.8l3.4-1a4 4 0 0 0 2.6-2.6l1-3.4c.1-.4.5-.7.9-.7Zm6.6 12.1c.2 0 .4.2.5.4l.4 1.4c.1.4.4.7.8.8l1.3.4a.45.45 0 0 1 0 .9l-1.3.4a1.3 1.3 0 0 0-.8.8l-.4 1.4a.45.45 0 0 1-.9 0l-.4-1.4a1.3 1.3 0 0 0-.8-.8l-1.3-.4a.45.45 0 0 1 0-.9l1.3-.4c.4-.1.7-.4.8-.8l.4-1.4c.1-.2.2-.4.4-.4Z"/>
+      </symbol>
+
+      <symbol id="icon-lines" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M4.5 5.5h15a1.25 1.25 0 1 1 0 2.5h-15a1.25 1.25 0 1 1 0-2.5Zm0 5h15a1.25 1.25 0 1 1 0 2.5h-15a1.25 1.25 0 1 1 0-2.5Zm0 5h10a1.25 1.25 0 1 1 0 2.5h-10a1.25 1.25 0 1 1 0-2.5Z"/>
+      </symbol>
+
+      <symbol id="icon-code" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M9.1 4.3a1.2 1.2 0 0 1 1 1.37l-2.3 13a1.2 1.2 0 0 1-2.37-.42l2.3-13A1.2 1.2 0 0 1 9.1 4.3Zm7.6 3.1a1.2 1.2 0 0 1 1.7 0l2.9 2.9a1.2 1.2 0 0 1 0 1.7l-2.9 2.9a1.2 1.2 0 0 1-1.7-1.7l2.05-2.05-2.05-2.05a1.2 1.2 0 0 1 0-1.7Zm-8.4 0a1.2 1.2 0 0 1 0 1.7L6.25 11.2l2.05 2.05a1.2 1.2 0 0 1-1.7 1.7l-2.9-2.9a1.2 1.2 0 0 1 0-1.7l2.9-2.9a1.2 1.2 0 0 1 1.7 0Z"/>
+      </symbol>
+
+      <symbol id="icon-terminal" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M3 4.8A2.8 2.8 0 0 1 5.8 2h12.4A2.8 2.8 0 0 1 21 4.8v14.4A2.8 2.8 0 0 1 18.2 22H5.8A2.8 2.8 0 0 1 3 19.2V4.8Zm4.35 3.1a1.15 1.15 0 0 0 0 1.63L9.27 11.4l-1.92 1.87a1.15 1.15 0 0 0 1.63 1.63l2.79-2.7a1.15 1.15 0 0 0 0-1.63L9.0 7.9a1.15 1.15 0 0 0-1.65 0Zm6.1 6.7a1.15 1.15 0 1 0 0 2.3h3.7a1.15 1.15 0 1 0 0-2.3h-3.7Z"/>
+      </symbol>
+
+      <symbol id="icon-tune" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M4 6.2h9.4a3.1 3.1 0 0 1 6 0H20a1.2 1.2 0 1 1 0 2.4h-.6a3.1 3.1 0 0 1-6 0H4a1.2 1.2 0 1 1 0-2.4Zm0 9.2h2.6a3.1 3.1 0 0 1 6 0H20a1.2 1.2 0 1 1 0 2.4H12.6a3.1 3.1 0 0 1-6 0H4a1.2 1.2 0 1 1 0-2.4Z"/>
+      </symbol>
+
+      <symbol id="icon-link" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M9.9 14.1a1.2 1.2 0 0 1 0-1.7l2.5-2.5a1.2 1.2 0 1 1 1.7 1.7l-2.5 2.5a1.2 1.2 0 0 1-1.7 0Zm-3.4 5.2a5 5 0 0 1 0-7.1l2.4-2.4a1.2 1.2 0 0 1 1.7 1.7L8.2 13.9a2.6 2.6 0 0 0 3.7 3.7l2.4-2.4a1.2 1.2 0 1 1 1.7 1.7l-2.4 2.4a5 5 0 0 1-7.1 0Zm9.9-9.9a1.2 1.2 0 0 1 1.7 0 5 5 0 0 1 0 7.1l-2.4 2.4a1.2 1.2 0 0 1-1.7-1.7l2.4-2.4a2.6 2.6 0 0 0-3.7-3.7l-2.4 2.4a1.2 1.2 0 1 1-1.7-1.7l2.4-2.4a5 5 0 0 1 7.1 0Z"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <header class="app-header" role="banner">
+    <div class="header-left">
+      <!-- Menu historique — en haut à l'extrême gauche. -->
+      <button id="historyToggle" class="icon-button icon-button-lg" type="button" aria-label="Ouvrir l'historique des conversations" aria-expanded="false" title="Historique des conversations">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-menu"></use></svg>
+      </button>
+
+      <div class="brand">
+        <span class="brand-badge" aria-hidden="true">
+          <svg class="brand-dolphin" viewBox="0 0 128 128"><use href="#icon-dolphin"></use></svg>
+        </span>
+        <span class="brand-text">
+          <span class="brand-name">Venice</span>
+          <span class="brand-sub">par Crazy Prince</span>
+        </span>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <span id="statusBadge" class="status-badge status-loading" title="État de la passerelle Dolphin">
+        <span class="dot" aria-hidden="true"></span><span id="statusText">connexion…</span>
+      </span>
+      <button id="themeToggle" class="icon-button" type="button" aria-label="Changer de thème" title="Changer de thème">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use id="themeIcon" href="#icon-moon"></use></svg>
+      </button>
+      <button id="newChat" class="icon-button icon-button-label" type="button" aria-label="Nouvelle conversation" title="Nouvelle conversation">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-plus"></use></svg>
+        <span>Nouveau</span>
+      </button>
+      <button id="clearChat" class="icon-button icon-button-label" type="button" aria-label="Effacer la conversation" title="Effacer la conversation">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-trash"></use></svg>
+        <span>Effacer</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Barre d'outils : modèles + rôles du chat Dolphin. -->
+  <div class="toolbar" role="group" aria-label="Modèle et rôle">
+    <div class="tool-group">
+      <label class="tool-label" for="modelSelect">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-chip"></use></svg>
+        Modèle
+      </label>
+      <select id="modelSelect" class="tool-select" aria-label="Modèle Dolphin">
+        <option value="">chargement…</option>
+      </select>
+    </div>
+
+    <div class="tool-group">
+      <label class="tool-label" for="templateSelect">
+        <svg class="icon" id="templateIcon" viewBox="0 0 24 24" aria-hidden="true"><use id="templateIconUse" href="#icon-brain"></use></svg>
+        Rôle
+      </label>
+      <select id="templateSelect" class="tool-select" aria-label="Rôle (template) Dolphin">
+        <option value="">chargement…</option>
+      </select>
+    </div>
+
+    <span id="templateHint" class="tool-hint"></span>
+
+    <button id="personaToggle" class="tool-button" type="button" aria-expanded="false" aria-controls="personaPanel" title="Instructions personnalisées pour cette conversation">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-tune"></use></svg>
+      <span>Instructions</span>
+    </button>
+
+    <span id="catalogSource" class="tool-source" title="Source du catalogue"></span>
+  </div>
+
+  <section id="personaPanel" class="persona-panel" hidden aria-label="Instructions personnalisées">
+    <label for="personaInput" class="sr-only">Instructions personnalisées</label>
+    <textarea id="personaInput" rows="2" maxlength="4000" placeholder="Ex. : réponds en anglais, style télégraphique, toujours avec un exemple de code…"></textarea>
+    <div class="persona-actions">
+      <span class="persona-note">Ajoutées au prompt système de Venice, pour cette conversation uniquement.</span>
+      <button id="personaClear" class="tool-button" type="button">Réinitialiser</button>
+    </div>
+  </section>
+
+  <main id="chat" class="chat">
+    <div id="emptyState" class="empty-state">
+      <span class="empty-logo" aria-hidden="true">
+        <svg class="empty-dolphin" viewBox="0 0 128 128"><use href="#icon-dolphin"></use></svg>
+      </span>
+      <h1 id="greeting" class="greeting"></h1>
+      <p class="empty-sub">Je suis <strong>Venice</strong>, créée par Crazy Prince.</p>
+      <p class="empty-hint" id="emptyHint">Modèles et rôles du chat Dolphin, relayés en direct.</p>
+    </div>
+
+    <div id="messages" class="messages" aria-label="Conversation" role="log" aria-live="polite"></div>
+  </main>
+
+  <footer class="composer-wrap">
+    <form id="chatForm" class="composer" autocomplete="off">
+      <label for="userInput" class="sr-only">Votre message à Venice</label>
+      <textarea
+        id="userInput"
+        name="message"
+        rows="1"
+        placeholder="Écris à Venice…"
+        aria-label="Écris à Venice"
+        enterkeyhint="send"
+      ></textarea>
+      <button id="sendBtn" class="send-button" type="submit" aria-label="Envoyer le message" title="Envoyer le message">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-send"></use></svg>
+      </button>
+    </form>
+    <p class="composer-note">
+      Powered by Crazy Prince <span class="sep" aria-hidden="true">|</span> From Cameroun
+      <img class="flag" src="/assets/cameroun.svg" width="21" height="14" alt="Cameroun" />
+    </p>
+  </footer>
+
+  <!-- ------------------------------------------------------------------ -->
+  <!-- Historique : conversations sauvegardées en local (localStorage)     -->
+  <!-- ------------------------------------------------------------------ -->
+  <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
+
+  <aside id="historyDrawer" class="drawer" aria-label="Historique des conversations" aria-hidden="true" hidden>
+    <div class="drawer-head">
+      <h2>Historique</h2>
+      <button id="drawerClose" class="icon-button" type="button" aria-label="Fermer l'historique" title="Fermer">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-close"></use></svg>
+      </button>
+    </div>
+
+    <button id="drawerNew" class="drawer-new" type="button">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-plus"></use></svg>
+      Nouvelle conversation
+    </button>
+
+    <div class="drawer-search">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-search"></use></svg>
+      <label for="historySearch" class="sr-only">Rechercher une conversation</label>
+      <input id="historySearch" type="search" placeholder="Rechercher un message…" autocomplete="off" />
+    </div>
+
+    <ul id="historyList" class="history-list"></ul>
+
+    <div class="drawer-foot">
+      <span id="historyCount" class="history-count">0 conversation</span>
+      <button id="historyClearAll" class="link-button" type="button">Tout effacer</button>
+    </div>
+    <p class="drawer-note">Stocké dans ce navigateur uniquement — rien n'est envoyé au serveur.</p>
+  </aside>
+
+  <div id="errorToast" class="error-toast" role="alert" hidden></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
+  <script src="/script.js?v=20260919" type="module"></script>
+</body>
+</html>

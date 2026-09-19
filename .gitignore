@@ -1,0 +1,19 @@
+# Secrets — ne jamais commiter
+.env
+.env.local
+.env.*.local
+
+# Dépendances
+node_modules/
+
+# Déploiement
+.vercel
+
+# Logs / divers
+npm-debug.log*
+.DS_Store
+
+# Sorties de tests / captures
+coverage/
+*.log
+*.png.tmp
