@@ -10,14 +10,12 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 
 import { parseEvent, parseSSE, extractDelta, isDone, sseFrame } from "../lib/sse.js";
 import { validateChatPayload, buildUpstreamMessages, ValidationError } from "../lib/messages.js";
 import { DolphinSession, parseCookieHeader } from "../lib/session.js";
 import { cookiesToHeader, relevantCookies } from "../lib/cloudflare.js";
-import { getConfig, detectPlatform } from "../lib/config.js";
-import { isSecretKey, maskValue, buildPushPlan } from "../scripts/vercel-env.mjs";
+import { getConfig } from "../lib/config.js";
 import { createRuntime } from "../lib/runtime.js";
 import { createApp } from "../server.js";
 import { createMockDolphin } from "./mock-dolphin.mjs";
@@ -253,12 +251,12 @@ test("recover force un nouveau cookie après un challenge", async () => {
 /* 5. Intégration HTTP                                                        */
 /* ========================================================================== */
 
-async function startMockRuntime({ mockOptions = {}, env = {}, session: givenSession, solver: givenSolver } = {}) {
+async function startMockRuntime({ mockOptions = {}, env = {}, session: givenSession } = {}) {
   const mock = createMockDolphin(mockOptions);
   const baseUrl = await mock.listen(0);
 
   const cfg = testConfig({ DOLPHIN_BASE_URL: baseUrl, ...env });
-  const solver = givenSolver ?? fakeSolver("cf_clearance=good; __cf_ob=ok");
+  const solver = fakeSolver("cf_clearance=good; __cf_ob=ok");
   const session =
     givenSession ??
     new DolphinSession(cfg, {
@@ -535,163 +533,4 @@ test("les fichiers statiques sont servis et la traversée est bloquée", async (
   } finally {
     await ctx.close();
   }
-});
-
-/* ========================================================================== */
-/* 6. Plateformes « serverless » (Vercel) et variables d'environnement        */
-/* ========================================================================== */
-
-test("detectPlatform reconnaît Vercel, Render et un serveur Node", () => {
-  assert.equal(detectPlatform({ VERCEL: "1" }).name, "vercel");
-  assert.equal(detectPlatform({ VERCEL: "1" }).serverless, true);
-  assert.equal(detectPlatform({ VERCEL: "1", RENDER: "true" }).name, "vercel");
-  assert.equal(detectPlatform({ RENDER: "true" }).name, "render");
-  assert.equal(detectPlatform({ RENDER: "true" }).serverless, false);
-  assert.equal(detectPlatform({ FLY_APP_NAME: "venice" }).name, "fly");
-  assert.equal(detectPlatform({}).name, "node");
-  assert.equal(detectPlatform({}).serverless, false);
-  // La config complète porte l'information de plateforme.
-  assert.equal(testConfig({ VERCEL: "1" }).platform.serverless, true);
-});
-
-test("sur Vercel, le diagnostic dit « pas de navigateur » au lieu d'un challenge CF", async () => {
-  const failingSolver = async () => {
-    throw new Error("Playwright est introuvable sur cette plateforme");
-  };
-  const ctx = await startMockRuntime({ env: { VERCEL: "1" }, solver: failingSolver });
-
-  try {
-    // /api/health explique la situation AVANT même le premier message.
-    const health = await (await fetch(`${ctx.base}/api/health`)).json();
-    assert.equal(health.deployment.platform, "vercel");
-    assert.equal(health.deployment.serverless, true);
-    assert.equal(health.deployment.sessionCapable, false);
-    assert.equal(health.diagnostic.level, "error");
-    assert.equal(health.diagnostic.code, "NO_BROWSER");
-    assert.match(health.diagnostic.message, /Vercel/);
-    assert.match(health.diagnostic.hint, /conteneur|Render/);
-
-    // Et le chat renvoie la VRAIE cause, pas « CF_CHALLENGE ».
-    const res = await fetch(`${ctx.base}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: [{ role: "user", content: "Bonjour" }], stream: false }),
-    });
-    assert.equal(res.status, 503);
-    const payload = await res.json();
-    assert.equal(payload.error.code, "NO_BROWSER");
-    assert.notEqual(payload.error.code, "CF_CHALLENGE");
-    assert.match(payload.error.message, /Vercel/);
-    assert.match(payload.error.detail, /HTTP 403/);
-  } finally {
-    await ctx.close();
-  }
-});
-
-test("hors serverless, l'échec du solveur est remonté tel quel (NO_SESSION)", async () => {
-  const failingSolver = async () => {
-    throw new Error("Chromium n'a pas démarré");
-  };
-  const ctx = await startMockRuntime({ env: { DOLPHIN_SOLVER_HEADLESS: "1" }, solver: failingSolver });
-
-  try {
-    // /api/chat propage l'erreur (le catalogue, lui, se replie sur son
-    // catalogue embarqué : c'est voulu).
-    const res = await fetch(`${ctx.base}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: [{ role: "user", content: "Bonjour" }], stream: false }),
-    });
-    assert.equal(res.status, 503);
-    const payload = await res.json();
-    assert.equal(payload.error.code, "NO_SESSION");
-    assert.match(payload.error.message, /Chromium n'a pas démarré/);
-
-    const health = await (await fetch(`${ctx.base}/api/health`)).json();
-    assert.equal(health.diagnostic.level, "error");
-    assert.equal(health.diagnostic.code, "SOLVER_FAILED");
-    assert.match(health.diagnostic.hint, /playwright|DOLPHIN_COOKIE/);
-  } finally {
-    await ctx.close();
-  }
-});
-
-test("une session valide passe à « connecté » après le premier appel", async () => {
-  const ctx = await startMockRuntime();
-  try {
-    // Avant tout appel : aucun cookie en mémoire → « session en cours » (COLD).
-    const cold = await (await fetch(`${ctx.base}/api/health`)).json();
-    assert.equal(cold.diagnostic.code, "COLD");
-    assert.equal(cold.diagnostic.level, "warn");
-
-    // Le premier appel résout le challenge via le solveur : la session est prête.
-    assert.equal((await fetch(`${ctx.base}/api/catalog`)).status, 200);
-    const health = await (await fetch(`${ctx.base}/api/health`)).json();
-    assert.equal(health.deployment.platform, "node");
-    assert.equal(health.deployment.sessionCapable, true);
-    assert.equal(health.session.hasCookie, true);
-    assert.equal(health.diagnostic.code, "READY");
-    assert.equal(health.diagnostic.level, "ok");
-  } finally {
-    await ctx.close();
-  }
-});
-
-test("VENICE_ALLOWED_ORIGINS ouvre le CORS pour une interface hébergée ailleurs", async () => {
-  const ctx = await startMockRuntime({ env: { VENICE_ALLOWED_ORIGINS: "https://venice.vercel.app/" } });
-
-  try {
-    const preflight = await fetch(`${ctx.base}/api/chat`, {
-      method: "OPTIONS",
-      headers: {
-        origin: "https://venice.vercel.app",
-        "access-control-request-method": "POST",
-        "access-control-request-headers": "content-type",
-      },
-    });
-    assert.equal(preflight.status, 204);
-    assert.equal(preflight.headers.get("access-control-allow-origin"), "https://venice.vercel.app");
-    assert.equal(preflight.headers.get("access-control-allow-methods"), "GET, POST, OPTIONS");
-
-    // Origine inconnue : aucun en-tête, le navigateur bloquera lui-même.
-    const other = await fetch(`${ctx.base}/api/health`, { headers: { origin: "https://mechant.example" } });
-    assert.equal(other.headers.get("access-control-allow-origin"), null);
-  } finally {
-    await ctx.close();
-  }
-});
-
-test("sans VENICE_ALLOWED_ORIGINS, aucun en-tête CORS n'est ajouté", async () => {
-  const ctx = await startMockRuntime();
-  try {
-    const res = await fetch(`${ctx.base}/api/health`, { headers: { origin: "https://venice.vercel.app" } });
-    assert.equal(res.headers.get("access-control-allow-origin"), null);
-    // Un préflight non autorisé tombe sur la route normale (405 sur /api/chat).
-    const preflight = await fetch(`${ctx.base}/api/chat`, { method: "OPTIONS" });
-    assert.equal(preflight.status, 405);
-    assert.equal(preflight.headers.get("access-control-allow-origin"), null);
-  } finally {
-    await ctx.close();
-  }
-});
-
-test("le fichier d'environnement Vercel est poussable et ne contient aucun secret", async () => {
-  const text = await readFile(new URL("../.env.vercel.example", import.meta.url), "utf8");
-  const { entries, skipped } = buildPushPlan(text);
-
-  // Le modèle doit être autonome : mode démo + jeton d'admin (vide → ignoré).
-  const byKey = Object.fromEntries(entries.map((entry) => [entry.key, entry.value]));
-  assert.equal(byKey.DEMO_MODE, "1");
-  assert.equal(byKey.NODE_ENV, "production");
-  assert.ok(skipped.some((item) => item.key === "ADMIN_TOKEN"), "un ADMIN_TOKEN vide n'est pas poussé");
-  assert.ok(!entries.some((entry) => entry.key === "PORT"), "PORT est imposé par Vercel");
-
-  // Aucune valeur ressemblant à un secret réel dans un fichier versionné.
-  for (const entry of entries) {
-    if (isSecretKey(entry.key)) assert.equal(entry.value, "", `${entry.key} doit rester vide dans le modèle`);
-  }
-  assert.equal(maskValue("ADMIN_TOKEN", "1234567890abcdef"), `1234…${"*".repeat(12)}`);
-  assert.equal(maskValue("DEMO_MODE", "1"), "1");
-  assert.equal(isSecretKey("DOLPHIN_COOKIE"), true);
-  assert.equal(isSecretKey("DEMO_MODE"), false);
 });

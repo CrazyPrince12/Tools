@@ -2,12 +2,10 @@
 # Venice — image de production.
 #
 # Playwright + Chromium sont indispensables : c'est le navigateur headless qui
-# résout le challenge Cloudflare posé devant chat.dphn.ai. Un conteneur est la
-# cible recommandée (Render en runtime Docker, Fly.io, Railway, VPS…), car
-# `playwright install --with-deps` a besoin d'être root — ce qui est le cas
-# dans une image Docker, pas dans un build Node natif, et jamais dans une
-# fonction serverless type Vercel/Netlify/Lambda (voir README, « Déploiement
-# Vercel »).
+# résout le challenge Cloudflare posé devant chat.dphn.ai. Render (runtime
+# Docker) est la cible recommandée, car `playwright install --with-deps`
+# a besoin d'être root — ce qui est le cas dans une image Docker, pas dans un
+# build Node natif.
 #
 # Alternative : remplacer la première ligne par
 #     FROM mcr.microsoft.com/playwright:v1.63.0-jammy
