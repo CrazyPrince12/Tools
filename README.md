@@ -13,7 +13,7 @@ Passerelle Node.js auto-hébergée qui résout le challenge Cloudflare de [`chat
   <a href="https://render.com"><img src="https://img.shields.io/badge/Deploy-Render-46E3B7?style=for-the-badge&logo=render&logoColor=04121f&labelColor=04121f" alt="Render"></a>
   <a href="https://developer.mozilla.org/docs/Web/API/Server-sent_events"><img src="https://img.shields.io/badge/Stream-SSE-8ff7ea?style=for-the-badge&logo=serverless&logoColor=04121f&labelColor=04121f" alt="SSE"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/Licence-MIT-ff8a6b?style=for-the-badge&logo=opensourceinitiative&logoColor=04121f&labelColor=04121f" alt="MIT"></a>
-  <a href="tests/venice.test.mjs"><img src="https://img.shields.io/badge/tests-25%20%2F%2025-38e0a5?style=for-the-badge&logo=nodedotjs&logoColor=04121f&labelColor=04121f" alt="Tests"></a>
+  <a href="tests/venice.test.mjs"><img src="https://img.shields.io/badge/tests-32%20%2F%2032-38e0a5?style=for-the-badge&logo=nodedotjs&logoColor=04121f&labelColor=04121f" alt="Tests"></a>
 </p>
 
 Créé par **Crazy Prince** · Douala, Cameroun 🇨🇲
@@ -36,8 +36,9 @@ Créé par **Crazy Prince** · Douala, Cameroun 🇨🇲
 | [Fonctionnalités](#-fonctionnalités) | [Structure](#-structure-du-projet) |
 | [Démarrage rapide](#-démarrage-rapide) | [Configuration](#-configuration) |
 | [API](#-api) | [Déploiement Render](#-déploiement-render) |
-| [Tests](#-tests) | [Sécurité & éthique](#-sécurité--éthique) |
-| [Dépannage](#-dépannage) | [Feuille de route](#-feuille-de-route) |
+| [Déploiement Vercel](#-déploiement-vercel) | [Tests](#-tests) |
+| [Sécurité & éthique](#-sécurité--éthique) | [Dépannage](#-dépannage) |
+| [Feuille de route](#-feuille-de-route) | |
 
 ## ✨ Démo & principes
 
@@ -71,7 +72,7 @@ Créé par **Crazy Prince** · Douala, Cameroun 🇨🇲
                                  │  fetch /api/chat (SSE montant/descendant)
                  ┌───────────────▼──────────────────────────────────────────┐
    Passerelle    │  Node natif (server.js + lib/httpApi.js)                 │
-   Render        │  validation · rate limit · cache catalogue · SSE         │
+   (conteneur)   │  validation · rate limit · cache catalogue · SSE         │
                  └───────┬───────────────────────────────┬──────────────────┘
                          │                               │
         cookie frais ────┘                fetch natif (undici) avec cookie
@@ -94,6 +95,11 @@ Créé par **Crazy Prince** · Douala, Cameroun 🇨🇲
 4. La réponse SSE de `/api/chat` est parsée, normalisée (`choices[].delta.content` → `{delta}`) et re-streamée au navigateur.
 5. Cookie expiré ou `403 cf-mitigated: challenge` → nouveau passage par le point 1, puis rejeu automatique (une seule fois).
 
+> **Où héberger quoi ?** L'interface (`public/`) est purement statique : elle peut vivre sur Vercel.
+> La passerelle, elle, a besoin d'un **Chromium persistant et d'une IP stable** — donc d'un conteneur
+> (Render, Docker, Fly.io, VPS). Vercel ne peut pas tenir la session Cloudflare : voir
+> [Déploiement Vercel](#-déploiement-vercel).
+
 ## 🧰 Stack technique
 
 | Couche | Technologies |
@@ -103,9 +109,9 @@ Créé par **Crazy Prince** · Douala, Cameroun 🇨🇲
 | **Transport** | `fetch` natif (undici), Server-Sent Events, parsing incrémental UTF-8 |
 | **Frontend** | HTML5 sémantique · CSS3 (Grid, Flexbox, `color-mix`, thèmes) · JavaScript vanille · GSAP 3 · SVG sprite (aucun emoji) |
 | **Persistance** | `localStorage` (conversations, thème) — côté navigateur uniquement |
-| **Config** | Variables d'environnement (Render) · `.env` maison zéro dépendance |
-| **Déploiement** | Docker (`node:22-bookworm-slim`) · Render Blueprint (`render.yaml`) |
-| **Qualité** | 25 tests `node:test` (unitaires + intégration HTTP) · faux `chat.dphn.ai` intégré |
+| **Config** | Variables d'environnement (Render, Vercel, Docker) · `.env` maison zéro dépendance · pousseur `npm run vercel:env` |
+| **Déploiement** | Docker (`node:22-bookworm-slim`) · Render Blueprint (`render.yaml`) · interface statique Vercel (`vercel.json`) |
+| **Qualité** | 32 tests `node:test` (unitaires + intégration HTTP + plateformes serverless) · faux `chat.dphn.ai` intégré |
 
 ## 📁 Structure du projet
 
@@ -116,6 +122,10 @@ Créé par **Crazy Prince** · Douala, Cameroun 🇨🇲
 ├── config.js              Configuration centralisée (lue depuis l'environnement)
 ├── Dockerfile             Image de production (Chromium + dépendances système)
 ├── render.yaml            Blueprint Render (runtime Docker)
+├── vercel.json            Interface statique sur Vercel (+ réécriture /api/* optionnelle)
+├── .env.vercel.example    Modèle de variables pour Vercel (copier en .env.vercel)
+├── scripts/
+│   └── vercel-env.mjs     Pousse .env.vercel vers Vercel (npm run vercel:env)
 ├── src/
 │   ├── prompt.js          Identité et règles de Venice (prompt système)
 │   ├── skills.js          Compétences injectées dans le prompt système
@@ -139,7 +149,7 @@ Créé par **Crazy Prince** · Douala, Cameroun 🇨🇲
 │   └── assets/            venice.svg · cameroun.svg
 └── tests/
     ├── mock-dolphin.mjs   Faux chat.dphn.ai (challenge CF + SSE)
-    ├── venice.test.mjs    Suite node:test (25 tests)
+    ├── venice.test.mjs    Suite node:test (32 tests)
     └── real-check.mjs     Vérification réelle contre chat.dphn.ai
 ```
 
@@ -193,6 +203,7 @@ Le fichier [`.env.example`](.env.example) les documente en détail.
 | `VENICE_MAX_CONVERSATIONS` | `60` | Conversations conservées (navigateur) |
 | `VENICE_SYSTEM_PROMPT` | `src/prompt.js` | Remplace le prompt système |
 | `DEMO_MODE` | `0` | `1` = réponses simulées, aucun appel sortant |
+| `VENICE_ALLOWED_ORIGINS` | — | Origines autorisées en CORS (interface servie par un autre domaine). Vide = aucun en-tête CORS |
 | `ADMIN_TOKEN` | — | Active `POST /api/session/refresh` (en-tête `x-admin-token`) |
 | `PORT` / `HOST` | `3000` / `0.0.0.0` | Écoute HTTP |
 
@@ -238,7 +249,7 @@ data: {"error":{"status":503,"message":"Cloudflare exige un défi interactif…"
 | `GET /api/models` | `{"data":[{"id","label","vision","blurb","tone"}],"source","fetchedAt"}` |
 | `GET /api/templates` | `{"data":[{"id","label","hint","icon"}],"source","fetchedAt"}` |
 | `GET /api/catalog` | Modèles + rôles + défauts + source (`live` / `fallback`) |
-| `GET /api/health` | État de la passerelle : session CF, catalogue, uptime, limites d'historique |
+| `GET /api/health` | État de la passerelle : `deployment` (plateforme, `sessionCapable`), `session`, `diagnostic` (cause en clair), catalogue, uptime |
 | `POST /api/session/refresh` | Force un cookie neuf — réservé (`ADMIN_TOKEN`, en-tête `x-admin-token`) |
 
 ### Codes d'erreur
@@ -249,6 +260,9 @@ data: {"error":{"status":503,"message":"Cloudflare exige un défi interactif…"
 | `401` | `SESSION` | Session Dolphin expirée — la passerelle se reconnecte |
 | `429` | `RATE_LIMITED` | Limite locale atteinte (`Retry-After` fourni) |
 | `502` | `UPSTREAM_5XX` | Dolphin en erreur |
+| `403` | `CF_CHALLENGE` | Session existante invalidée par Cloudflare → rejeu automatique après rafraîchissement |
+| `503` | `NO_BROWSER` | Plateforme sans navigateur (Vercel, Netlify, Lambda) : aucune session possible — voir [Déploiement Vercel](#-déploiement-vercel) |
+| `503` | `NO_SESSION` | Aucune session disponible (cookie absent, solveur en échec) : la cause réelle est remontée au lieu d'un « challenge » générique |
 | `503` | `SOLVER_UNAVAILABLE`, `SOLVER_FAILED`, `UPSTREAM_UNREACHABLE` | Impossible d'obtenir une session ou de joindre Dolphin |
 | `504` | `TIMEOUT` | Amont muet |
 
@@ -261,6 +275,73 @@ data: {"error":{"status":503,"message":"Cloudflare exige un défi interactif…"
 > **Pourquoi Docker ?** `playwright install --with-deps chromium` a besoin d'être root pour installer les bibliothèques système de Chromium. C'est possible dans une image Docker, pas dans un build Node natif.
 
 **Option C — Node natif** (si vous fournissez le cookie vous-même) : build `npm install && npx playwright install chromium`, start `npm start`, puis renseignez `DOLPHIN_COOKIE` (valide ~30 min — à réinjecter régulièrement). Pour un usage de production, préférez Docker.
+
+## ▲ Déploiement Vercel
+
+### Ce que Vercel peut faire — et ce qu'il ne peut pas
+
+Vercel **héberge parfaitement l'interface** (`public/`, aucun build, CDN mondial : le [`vercel.json`](vercel.json) du dépôt sert exactement ça). En revanche, **le chat en mode réel ne peut pas fonctionner sur Vercel**, et *aucune variable d'environnement ne changera cela* :
+
+| Blocage | Détail |
+|---|---|
+| **Pas de navigateur** | `npx playwright install` ne rentre pas dans le paquet d'une fonction Vercel (limite de taille). Sans moteur de rendu, le challenge Cloudflare ne peut pas être exécuté. |
+| **IP de sortie instable** | `cf_clearance` est délivré à une empreinte **IP + User-Agent** : l'IP des fonctions change à chaque invocation, donc le cookie est invalidé à la requête suivante. |
+| **Processus éphémère** | La session vit en mémoire du processus : rien n'est partagé entre deux invocations, la boucle de rafraîchissement (12 min) n'a pas de sens. |
+
+C'est le sens de l'erreur `HTTP 403 · CF_CHALLENGE` accompagnée du badge gris « session en cours » : la passerelle n'a **aucun cookie** et n'a **aucun moyen d'en obtenir un**. Depuis cette version, Venice le dit explicitement (`503 NO_BROWSER`, badge rouge « session indisponible », champ `diagnostic` dans `/api/health`) au lieu de laisser croire qu'un rafraîchissement suffirait.
+
+### Option A — interface sur Vercel, passerelle sur un conteneur (recommandé)
+
+1. **Déployez la passerelle** là où Chromium peut vivre : Render ([`render.yaml`](render.yaml)), Docker, Fly.io, VPS… (voir [Déploiement Render](#-déploiement-render)).
+2. **Déployez l'interface** sur Vercel : le projet sert `public/` tel quel, sans commande de build ni dépendances.
+3. **Reliez les deux**, au choix :
+   - **Réécriture Vercel** (aucune ligne de code à changer) — dans `vercel.json` :
+     ```json
+     "rewrites": [
+       { "source": "/api/:path*", "destination": "https://votre-passerelle.onrender.com/api/:path*" }
+     ]
+     ```
+     L'interface continue d'appeler `/api/...` en relatif, tout passe par le domaine Vercel.
+   - **Appel direct** (sans proxy, si votre flux SSE est coupé par un intermédiaire) — dans `public/index.html` :
+     ```html
+     <meta name="venice-api-base" content="https://votre-passerelle.onrender.com" />
+     ```
+     puis, **côté passerelle** : `VENICE_ALLOWED_ORIGINS=https://votre-projet.vercel.app`.
+
+### Option B — tout sur Vercel en mode démo
+
+`DEMO_MODE=1` : l'interface complète (historique, thèmes, modèles, rôles, streaming simulé) fonctionne, les réponses sont générées localement. C'est le seul mode où « discuter » fonctionne sans passerelle.
+
+```bash
+vercel link          # une seule fois
+npm run vercel:env   # pousse .env.vercel (DEMO_MODE=1, ADMIN_TOKEN…) vers Vercel
+vercel --prod
+```
+
+### Le « fichier d'env » pour Vercel
+
+Render se décrit avec un fichier versionné (`render.yaml`). Vercel n'a pas d'équivalent : `vercel.json` ne porte que le routing et le build (son champ `env` est un héritage déconseillé pour les secrets) et les variables se posent dans le dashboard… ou avec le pousseur fourni :
+
+```bash
+cp .env.vercel.example .env.vercel    # .env.vercel est ignoré par git
+$EDITOR .env.vercel                   # ajustez les valeurs
+npm run vercel:env                    # → production + preview + development
+npm run vercel:env -- --dry           # aperçu, sans rien modifier
+npm run vercel:env -- .env.vercel production
+```
+
+Le modèle [`.env.vercel.example`](.env.vercel.example) documente chaque variable et signale celles qui ne servent à rien sur Vercel. Le script [`scripts/vercel-env.mjs`](scripts/vercel-env.mjs) s'appuie sur la CLI Vercel (`npm i -g vercel`, `vercel link`) ; s'il ne la trouve pas, il affiche les paires à coller dans *Settings → Environment Variables*.
+
+### Vérifier ce que dit le serveur
+
+```bash
+curl -s https://votre-projet.vercel.app/api/health | jq '.deployment, .diagnostic'
+```
+
+```json
+{ "platform": "vercel", "serverless": true, "sessionCapable": false }
+{ "level": "error", "code": "NO_BROWSER", "message": "…", "hint": "Hébergez la passerelle sur un conteneur…" }
+```
 
 ## 🧪 Tests
 
@@ -288,6 +369,10 @@ challenge Cloudflare (`403` + `cf-mitigated: challenge`) et le streaming SSE.
 | Symptôme | Cause probable | Solution |
 |---|---|---|
 | Badge « session en cours » qui ne passe jamais à « connecté » | Chromium manquant ou challenge interactif | `npx playwright install --with-deps chromium`, puis vérifiez les logs `[cf]`. Si Turnstile s'affiche, injectez `DOLPHIN_COOKIE`. |
+| **`HTTP 403 · CF_CHALLENGE` sur Vercel** | Vercel ne peut pas résoudre le challenge (pas de Chromium, IP de sortie instable) | Servez l'interface sur Vercel et hébergez la passerelle sur un conteneur, ou passez `DEMO_MODE=1` — voir [Déploiement Vercel](#-déploiement-vercel) |
+| Badge rouge « session indisponible » | Cause définitive annoncée par `/api/health` (`diagnostic.code`) | Suivez `diagnostic.hint` : installer Chromium, injecter `DOLPHIN_COOKIE`, ou changer d'hébergeur |
+| `503 NO_BROWSER` / `NO_SESSION` | Aucune session et aucun moyen d'en obtenir une sur cette plateforme | Hébergez la passerelle sur un conteneur, ou fournissez `DOLPHIN_COOKIE` |
+| Erreurs CORS dans la console alors que l'interface est sur un autre domaine | Origine non autorisée par la passerelle | Sur la **passerelle** : `VENICE_ALLOWED_ORIGINS=https://votre-front.vercel.app` (ou utilisez la réécriture `/api/*`) |
 | `503 SOLVER_UNAVAILABLE` | Playwright absent | `npm install` puis `npx playwright install --with-deps chromium` |
 | `503 SOLVER_FAILED` (défi interactif) | Cloudflare durcit | Récupérez `cf_clearance` dans votre navigateur et posez `DOLPHIN_COOKIE` |
 | Réponses lentes au premier message | Résolution du challenge au démarrage | `DOLPHIN_REFRESH_ON_BOOT=1` (défaut) préchauffe la session |

@@ -2,6 +2,11 @@
 .env
 .env.local
 .env.*.local
+# Fichier de variables destiné à Vercel (le modèle .env.vercel.example, lui,
+# est versionné : il ne contient aucun secret).
+.env.vercel
+.env.vercel.*
+!.env.vercel.example
 
 # Dépendances
 node_modules/
