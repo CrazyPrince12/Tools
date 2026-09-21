@@ -18,6 +18,7 @@ import { loadDotEnv } from "./lib/env.js";
 import { getConfig } from "./lib/config.js";
 import { createRuntime } from "./lib/runtime.js";
 import {
+  applyCors,
   handleCatalogHttp,
   handleChatHttp,
   handleHealthHttp,
@@ -125,6 +126,10 @@ export function createApp(env = process.env, runtime = createRuntime(env)) {
     securityHeaders(res);
 
     try {
+      // CORS : uniquement si l'interface est servie depuis un autre domaine
+      // que la passerelle (VENICE_ALLOWED_ORIGINS). No-op par défaut.
+      if (applyCors(req, res, runtime.cfg)) return;
+
       if (pathname === "/api/chat" || pathname === "/api/chat/") {
         await handleChatHttp(req, res, runtime);
         return;
@@ -183,14 +188,29 @@ export function startServer(env = process.env) {
   const server = createApp(env, runtime);
 
   // Boucle de rafraîchissement du cookie cf_clearance (tâche de fond).
-  runtime.session.start();
-  if (cfg.refreshOnBoot && !cfg.demoMode) runtime.session.prewarm();
+  //
+  // ⚠️ Sur une plateforme « serverless » (Vercel, Netlify, Lambda), elle n'a
+  // aucun sens : chaque invocation est un processus neuf, parallèle, sans
+  // navigateur, et l'IP de sortie change — or `cf_clearance` est lié à l'IP.
+  // On la désactive et on le dit clairement au démarrage.
+  if (cfg.platform.serverless) {
+    console.warn(
+      `[server] ${cfg.platform.label} détecté : aucune session Cloudflare persistante possible (pas de Chromium, IP de sortie instable).`
+    );
+    console.warn(
+      `[server] → servez l'interface ici (statique) et hébergez la passerelle sur un conteneur (Render, Docker, Fly.io). Voir « Déploiement Vercel » dans le README.`
+    );
+  } else {
+    runtime.session.start();
+    if (cfg.refreshOnBoot && !cfg.demoMode) runtime.session.prewarm();
+  }
 
   server.listen(cfg.port, cfg.host, () => {
     const mode = cfg.demoMode ? "DÉMO (réponses simulées)" : "LIVE (chat.dphn.ai)";
     console.log(`${cfg.app.name} v${cfg.app.version} — ${cfg.app.tagline}`);
     console.log(`   écoute      : http://${cfg.host}:${cfg.port}`);
     console.log(`   mode        : ${mode}`);
+    console.log(`   plateforme  : ${cfg.platform.label}${cfg.platform.serverless ? " (serverless — pas de session CF possible)" : ""}`);
     console.log(`   amont       : ${cfg.baseUrl}`);
     console.log(
       `   solveur CF  : ${cfg.solver.mode === "none" ? "désactivé" : `Playwright (${cfg.solver.module}, headless=${cfg.solver.headless})`}`

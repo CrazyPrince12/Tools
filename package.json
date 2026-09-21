@@ -11,7 +11,9 @@
     "test": "node --test tests/venice.test.mjs",
     "test:real": "node tests/real-check.mjs",
     "mock": "node tests/mock-dolphin.mjs",
-    "browser:install": "playwright install --with-deps chromium"
+    "browser:install": "playwright install --with-deps chromium",
+    "vercel:env": "node scripts/vercel-env.mjs",
+    "vercel:env:dry": "node scripts/vercel-env.mjs --dry"
   },
   "repository": {
     "type": "git",
@@ -25,6 +27,7 @@
     "playwright",
     "sse",
     "scraping",
+    "vercel",
     "render"
   ],
   "author": "Crazy Prince",

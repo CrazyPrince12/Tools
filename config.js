@@ -52,6 +52,57 @@ export const DEFAULTS = {
 
 const SYSTEM_MODES = new Set(["auto", "system", "message", "none"]);
 
+/**
+ * Plateformes reconnues, détectées par variables d'environnement.
+ *
+ * `serverless: true` désigne un environnement où LA PASSERELLE NE PEUT PAS
+ * TENIR UNE SESSION CLOUDFLARE :
+ *   • pas de navigateur installable (limite de taille du paquet de fonction) ;
+ *   • processus éphémère et parallèle (aucun cookie partagé entre invocations) ;
+ *   • IP de sortie non stable — or `cf_clearance` est lié à l'IP + User-Agent
+ *     qui ont résolu le challenge : un cookie obtenu ici ne vaut rien ailleurs.
+ * Vercel (et Netlify/Lambda) sert donc très bien l'INTERFACE statique, mais pas
+ * le backend : voir « Déploiement Vercel » dans le README.
+ */
+export function detectPlatform(env = process.env) {
+  if (env.VERCEL || env.VERCEL_ENV) {
+    return {
+      name: "vercel",
+      label: "Vercel",
+      serverless: true,
+      hint:
+        "Les fonctions Vercel ne peuvent pas installer Chromium et leur IP de sortie change à chaque invocation : le challenge Cloudflare ne peut pas être résolu depuis cette plateforme.",
+    };
+  }
+  if (env.NETLIFY) {
+    return { name: "netlify", label: "Netlify", serverless: true, hint: "Idem Vercel : aucune session Chromium persistante." };
+  }
+  if (env.AWS_LAMBDA_FUNCTION_NAME && !env.RENDER) {
+    return { name: "lambda", label: "AWS Lambda", serverless: true, hint: "Idem Vercel : aucune session Chromium persistante." };
+  }
+  if (env.RENDER) {
+    return { name: "render", label: "Render", serverless: false, hint: null };
+  }
+  if (env.FLY_APP_NAME) {
+    return { name: "fly", label: "Fly.io", serverless: false, hint: null };
+  }
+  if (env.KOYEB_APP_NAME || env.KOYEB_SERVICE_NAME) {
+    return { name: "koyeb", label: "Koyeb", serverless: false, hint: null };
+  }
+  if (env.RAILWAY_ENVIRONMENT || env.RAILWAY_PROJECT_ID) {
+    return { name: "railway", label: "Railway", serverless: false, hint: null };
+  }
+  return { name: "node", label: "Node", serverless: false, hint: null };
+}
+
+/** Découpe une liste d'origines CORS (« https://a.fr, https://b.fr »). */
+function parseOrigins(value) {
+  return String(value || "")
+    .split(",")
+    .map((origin) => origin.trim().replace(/\/+$/, ""))
+    .filter(Boolean);
+}
+
 function num(value, fallback, { min = 0, max = Number.MAX_SAFE_INTEGER } = {}) {
   const n = Number(value);
   if (!Number.isFinite(n) || n < min || n > max) return fallback;
@@ -71,9 +122,16 @@ export function getConfig(env = process.env) {
   const demoMode = bool(env.DEMO_MODE, false);
   const solverMode = (env.DOLPHIN_SOLVER || "playwright").toLowerCase();
   const systemModeRaw = (env.DOLPHIN_SYSTEM_MODE || "auto").toLowerCase();
+  const platform = detectPlatform(env);
 
   return {
     app: { name: APP_NAME, author: APP_AUTHOR, version: APP_VERSION, tagline: APP_TAGLINE },
+
+    // --- Plateforme d'exécution -------------------------------------------
+    // Sert à expliquer précisément pourquoi une session est impossible
+    // (Vercel/Netlify/Lambda) au lieu d'afficher un « challenge Cloudflare »
+    // trompeur lorsque le vrai problème est l'absence de navigateur.
+    platform,
 
     // --- Cible ------------------------------------------------------------
     baseUrl: (env.DOLPHIN_BASE_URL || DOLPHIN_BASE_URL).replace(/\/+$/, ""),
@@ -122,6 +180,10 @@ export function getConfig(env = process.env) {
     rateWindowMs: num(env.VENICE_RATE_WINDOW_MS, DEFAULTS.rateWindowMs, { min: 1_000 }),
     adminToken: (env.ADMIN_TOKEN || "").trim(),
     trustProxy: bool(env.TRUST_PROXY, true),
+    // CORS : uniquement si l'interface est servie depuis un AUTRE domaine que
+    // la passerelle (ex. UI sur Vercel, API sur Render). Vide = aucun en-tête
+    // CORS (comportement par défaut, sûr). "*" = toutes origines.
+    allowedOrigins: parseOrigins(env.VENICE_ALLOWED_ORIGINS),
     history: {
       contextWindow: num(env.VENICE_CONTEXT_WINDOW, 20, { min: 1, max: 40 }),
       storedMessages: num(env.VENICE_STORED_MESSAGES, 80, { min: 10, max: 500 }),

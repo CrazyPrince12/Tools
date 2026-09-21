@@ -12,6 +12,24 @@ const BOT_NAME = "Venice";
 const THEME_KEY = "venice.theme";
 const STORE_KEY = "venice.store.v2";
 
+/**
+ * Base des appels API.
+ * • Vide (défaut) : même origine — l'interface et la passerelle sont servies par
+ *   le même domaine (local, Render, Docker, ou Vercel qui réécrit /api/*).
+ * • Renseignée via <meta name="venice-api-base"> : l'interface est servie par
+ *   un domaine et la passerelle par un autre (ex. UI sur Vercel + passerelle
+ *   Chromium sur Render, sans réécriture). Côté passerelle, autorisez alors
+ *   l'origine avec VENICE_ALLOWED_ORIGINS.
+ */
+const API_BASE = (document.querySelector('meta[name="venice-api-base"]')?.content || "")
+  .trim()
+  .replace(/\/+$/, "");
+
+/** URL absolue d'une route de l'API (relative quand API_BASE est vide). */
+function apiUrl(path) {
+  return `${API_BASE}${path}`;
+}
+
 /** Fenêtre de contexte envoyée au serveur (derniers messages). */
 let CONTEXT_WINDOW = 20;
 /** Messages conservés par conversation dans le navigateur. */
@@ -597,7 +615,7 @@ function labelForTemplate(id) {
 
 async function loadCatalog() {
   try {
-    const res = await fetch("/api/catalog");
+    const res = await fetch(apiUrl("/api/catalog"));
     const data = await res.json();
     if (!res.ok || data.error) throw new Error(data.error?.message || "Catalogue indisponible.");
 
@@ -1166,9 +1184,22 @@ function startRename(item, id) {
 /* État du serveur (badge)                                             */
 /* ------------------------------------------------------------------ */
 
+/** Dernier problème de session déjà annoncé (évite un toast toutes les minutes). */
+let lastSessionProblem = null;
+
+/**
+ * Prévient une seule fois par cause : le message du serveur (message + conseil)
+ * plutôt qu'un « challenge Cloudflare » générique.
+ */
+function notifySessionProblem(diagnostic) {
+  if (!diagnostic?.code || lastSessionProblem === diagnostic.code) return;
+  lastSessionProblem = diagnostic.code;
+  showToast(diagnostic.message, diagnostic.hint || "Détails : /api/health");
+}
+
 async function refreshHealth() {
   try {
-    const res = await fetch("/api/health");
+    const res = await fetch(apiUrl("/api/health"));
     const health = await res.json();
     el.statusBadge.classList.remove("status-loading", "status-ok", "status-demo", "status-error");
 
@@ -1179,20 +1210,37 @@ async function refreshHealth() {
       MAX_CONVERSATIONS = health.history.maxConversations ?? MAX_CONVERSATIONS;
     }
 
+    // Le serveur explique lui-même l'état de la session (cause en clair).
+    const diagnostic = health.diagnostic ?? health.session?.diagnostic ?? null;
+    const sessionOk = Boolean(health.session?.hasCookie) && health.session?.state !== "stale";
+
     if (health.demoMode) {
       el.statusBadge.classList.add("status-demo");
       el.statusText.textContent = "mode démo";
-    } else if (health.session?.hasCookie || health.session?.state === "warm") {
+      el.statusBadge.title = "Mode démo : réponses simulées, aucun appel à chat.dphn.ai.";
+    } else if (sessionOk) {
       el.statusBadge.classList.add("status-ok");
       el.statusText.textContent = "connecté";
+      el.statusBadge.title = diagnostic?.message || "Session Cloudflare active.";
+    } else if (diagnostic?.level === "error") {
+      // Cause DÉFINITIVE (plateforme sans navigateur, cookie absent…) : on le
+      // dit clairement au lieu de laisser un badge gris « session en cours »
+      // qui tourne indéfiniment sans jamais se connecter.
+      el.statusBadge.classList.add("status-error");
+      el.statusText.textContent = "session indisponible";
+      el.statusBadge.title = [diagnostic.message, diagnostic.hint].filter(Boolean).join(" — ");
+      notifySessionProblem(diagnostic);
     } else {
       el.statusBadge.classList.add("status-loading");
       el.statusText.textContent = "session en cours";
+      el.statusBadge.title = diagnostic?.message || "État de la passerelle Dolphin";
     }
 
     el.emptyHint.textContent = health.demoMode
       ? "Mode démo : réponses simulées, interface complète."
-      : `Modèles et rôles du chat Dolphin${health.upstream?.systemMode ? ` · session ${health.session?.state ?? "?"}` : ""}.`;
+      : diagnostic?.level === "error"
+        ? diagnostic.message
+        : `Modèles et rôles du chat Dolphin${health.upstream?.systemMode ? ` · session ${health.session?.state ?? "?"}` : ""}.`;
   } catch {
     el.statusBadge.classList.remove("status-loading", "status-ok", "status-demo");
     el.statusBadge.classList.add("status-error");
@@ -1365,7 +1413,7 @@ async function sendMessage(text) {
   };
 
   try {
-    const res = await fetch("/api/chat", {
+    const res = await fetch(apiUrl("/api/chat"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(buildPayload(conversation)),
