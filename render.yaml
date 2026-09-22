@@ -35,9 +35,24 @@ services:
       # Mode démo : passez à 1 pour tester l'interface sans toucher à Dolphin.
       - key: DEMO_MODE
         value: "0"
-      # Database Neon PostgreSQL (obligatoire)
+      # ── Base de données Neon PostgreSQL ────────────────────────────────────
+      # OBLIGATOIRE en production : c'est elle qui garantit que les comptes et
+      # les sessions SURVIVENT aux déploiements, aux merges de PR/commits, aux
+      # redémarrages et même à la suppression/recréation du service Render
+      # (le disque de Render est éphémère ; Neon, lui, est externe et permanent).
+      # À renseigner dans le dashboard Render : render.com > New > Postgres
+      # (ou une base gratuite sur neon.tech), puis collez l'URL de connexion
+      # (postgresql://…?sslmode=require) dans DATABASE_URL.
       - key: DATABASE_URL
-        sync: false # à renseigner directement sur le dashboard Render
+        sync: false # secret : à renseigner directement sur le dashboard Render
+      # ── Compte administrateur (optionnel) ─────────────────────────────────
+      # Surcharge admin-credentials.json sans toucher au dépôt.
+      # - key: ADMIN_USERNAME
+      #   sync: false
+      # - key: ADMIN_EMAIL
+      #   sync: false
+      # - key: ADMIN_PASSWORD
+      #   sync: false
       # Jeton des routes d'administration (POST /api/session/refresh).
       - key: ADMIN_TOKEN
         sync: false # vous le saisissez dans le dashboard, il n'entre jamais dans le repo

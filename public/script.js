@@ -1565,20 +1565,31 @@ async function checkAuthStatus() {
     const res = await fetch("/api/auth/me", {
       headers: { "Authorization": `Bearer ${token}` },
     });
-    const data = await res.json();
+    // 503 = base momentanément indisponible : on NE déconnecte PAS.
+    if (res.status === 502 || res.status === 503 || res.status === 504) {
+      console.warn("[auth] Serveur momentanément indisponible — session conservée.");
+      return;
+    }
+    const data = await res.json().catch(() => ({}));
     if (res.ok && data.authenticated && data.user) {
       currentUser = data.user;
       localStorage.setItem("venice_user", JSON.stringify(data.user));
       updateProfileUI(currentUser);
       checkUserAlert(currentUser);
-    } else {
+    } else if (res.ok && data.authenticated === false) {
+      // Session réellement expirée/invalide (vérifiée côté serveur).
       currentUser = null;
       localStorage.removeItem("venice_token");
       localStorage.removeItem("venice_user");
       updateProfileUI(null);
+    } else {
+      // Erreur serveur inattendue : on garde la session, un nouvel essai
+      // aura lieu au prochain chargement de page.
+      console.warn("[auth] Session non vérifiable pour le moment — conservée.");
     }
   } catch (err) {
-    console.warn("[auth] Vérification échouée :", err.message);
+    // Réseau indisponible : on ne déconnecte jamais sur une erreur réseau.
+    console.warn("[auth] Vérification échouée (session conservée) :", err.message);
   }
 }
 

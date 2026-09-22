@@ -228,7 +228,17 @@ export function createApp(env = process.env, runtime = createRuntime(env)) {
       // Protection stricte de la route /admin :
       // "Faites en sorte que même si une personne utilise une route sans se connecter il ne puisse ouvrir la page admin, il sera redirigé au chat"
       if (pathname === "/admin" || pathname === "/admin/" || pathname === "/admin.html") {
-        const auth = await authenticateRequest(req);
+        let auth = null;
+        try {
+          auth = await authenticateRequest(req);
+        } catch (err) {
+          // DB momentanément indisponible : on ne casse pas la navigation,
+          // la session est conservée et sera revalidée à la prochaine requête.
+          console.warn("[server] Vérification admin impossible :", err.message);
+          res.writeHead(302, { Location: "/?auth_required=db" });
+          res.end();
+          return;
+        }
         if (!auth || auth.user.role !== "admin") {
           res.writeHead(302, { Location: "/?auth_required=admin" });
           res.end();
@@ -260,7 +270,7 @@ export function createApp(env = process.env, runtime = createRuntime(env)) {
 /** Démarre le serveur + la boucle de session Cloudflare + initialise la DB. */
 export async function startServer(env = process.env) {
   // Initialisation de la base de données Neon PostgreSQL ou local fallback
-  await initDb(env.DATABASE_URL);
+  const dbStatus = await initDb(env.DATABASE_URL);
 
   const cfg = getConfig(env);
   const runtime = createRuntime(env);
@@ -276,6 +286,13 @@ export async function startServer(env = process.env) {
     console.log(`   écoute      : http://${cfg.host}:${cfg.port}`);
     console.log(`   mode        : ${mode}`);
     console.log(`   amont       : ${cfg.baseUrl}`);
+    const storageLabel =
+      dbStatus.mode === "postgres"
+        ? "PostgreSQL (Neon) — persistance garantie"
+        : dbStatus.mode === "local-degraded"
+          ? "LOCAL DÉGRADÉ — en attente de PostgreSQL (reconnexion automatique)"
+          : "fichier local (dev uniquement — NON persistant en production)";
+    console.log(`   stockage    : ${storageLabel}`);
     console.log(
       `   solveur CF  : ${cfg.solver.mode === "none" ? "désactivé" : `Playwright (${cfg.solver.module}, headless=${cfg.solver.headless})`}`
     );
