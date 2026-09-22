@@ -10,13 +10,14 @@ Passerelle Node.js auto-hébergée qui résout le challenge Cloudflare de [`chat
 <p>
   <a href="https://nodejs.org"><img src="https://img.shields.io/badge/Node.js-20%2B-35e0d4?style=for-the-badge&logo=node.js&logoColor=04121f&labelColor=04121f" alt="Node 20+"></a>
   <a href="https://playwright.dev"><img src="https://img.shields.io/badge/Playwright-Chromium-2a8fe0?style=for-the-badge&logo=playwright&logoColor=04121f&labelColor=04121f" alt="Playwright"></a>
+  <a href="https://neon.tech"><img src="https://img.shields.io/badge/Database-PostgreSQL%20Neon-00E599?style=for-the-badge&logo=postgresql&logoColor=04121f&labelColor=04121f" alt="Neon PostgreSQL"></a>
   <a href="https://render.com"><img src="https://img.shields.io/badge/Deploy-Render-46E3B7?style=for-the-badge&logo=render&logoColor=04121f&labelColor=04121f" alt="Render"></a>
   <a href="https://developer.mozilla.org/docs/Web/API/Server-sent_events"><img src="https://img.shields.io/badge/Stream-SSE-8ff7ea?style=for-the-badge&logo=serverless&logoColor=04121f&labelColor=04121f" alt="SSE"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/Licence-MIT-ff8a6b?style=for-the-badge&logo=opensourceinitiative&logoColor=04121f&labelColor=04121f" alt="MIT"></a>
-  <a href="tests/venice.test.mjs"><img src="https://img.shields.io/badge/tests-25%20%2F%2025-38e0a5?style=for-the-badge&logo=nodedotjs&logoColor=04121f&labelColor=04121f" alt="Tests"></a>
+  <a href="tests/venice.test.mjs"><img src="https://img.shields.io/badge/tests-29%20%2F%2029-38e0a5?style=for-the-badge&logo=nodedotjs&logoColor=04121f&labelColor=04121f" alt="Tests"></a>
 </p>
 
-Créé par **Crazy Prince** · Douala, Cameroun 🇨🇲
+Créé par **Crazy Prince** · Douala, Cameroun 🇨🇲 · Contact : [wa.me/+237694169177](https://wa.me/+237694169177)
 
 </div>
 
@@ -47,17 +48,64 @@ Créé par **Crazy Prince** · Douala, Cameroun 🇨🇲
 | **Le navigateur ne connaît aucun secret** | Le front n'appelle que `/api/*` ; la session `cf_clearance` reste côté serveur. |
 | **Dégradation élégante** | Le catalogue embarqué prend le relais si l'amont tombe, et l'interface reste complète en mode démo. |
 | **Client raisonnable** | Rate limit par IP, cache du catalogue, rafraîchissements préventifs — on ne matraque pas l'amont. |
-| **Historique privé** | Les conversations vivent dans `localStorage`. Rien n'est stocké côté serveur. |
+| **Persistance sécurisée** | Base PostgreSQL Neon (variable obligatoire `DATABASE_URL`) avec audit et surveillance du trafic. |
+
+## 🚦 Voyant d'état (Signification des 3 Couleurs)
+
+Pour offrir un maximum d'espace au titre **Venice par Crazy Prince** et garantir une parfaite responsive mobile, le long badge textuel a été remplacé par un voyant lumineux compact à 3 états :
+
+| Couleur du voyant | Signification | Comportement |
+|---|---|---|
+| 🟢 **Vert** | **Connecté & Opérationnel** | La session Cloudflare est active (`warm`), la passerelle est prête à relayer immédiatement vos requêtes vers le chat Dolphin. |
+| ⚪ **Gris** | **Session en cours / Initialisation** | La passerelle démarre, prépare le navigateur headless ou procède au rafraîchissement préventif du cookie de sécurité. |
+| 🔴 **Rouge** | **Hors ligne / Erreur amont** | La passerelle ne parvient pas à joindre le serveur Dolphin ou le service amont rencontre une indisponibilité. |
+
+Au survol du voyant, une infobulle native décrit textuellement l'état exact de la connexion.
+
+## 🔐 Login / Sign-up Wall avec Chat Preview
+
+Venice adopte le modèle moderne de **Login Wall avec Chat Preview** :
+- Le site s'ouvre directement sur le chat. L'utilisateur peut explorer l'interface, consulter les modèles et rôles disponibles et taper son premier message dans la boîte de dialogue.
+- Dès que l'utilisateur clique sur Envoyer (ou appuie sur Entrée), le mur de connexion / inscription fluide s'affiche au premier plan sans perdre le message rédigé.
+- Données demandées à l'inscription :
+  - **Pseudo** (nom ou pseudo d'affichage)
+  - **Où il a entendu parler de Venice pour la première fois** (*heard_from*)
+  - **user_name sans espace** (identifiant strict)
+  - **Adresse e-mail**
+  - **Mot de passe** (sécurisé avec salage bcrypt)
+- À la connexion, l'utilisateur peut indifféremment utiliser son **e-mail** ou son **user_name**.
+- Les sessions sont configurées pour rester **actives pendant 90 jours consécutifs** afin d'éviter toute reconnexion intempestive même après plusieurs jours sans ouvrir le navigateur.
+
+## 🛡️ Panneau d'Administration (`/admin`) & Surveillance du Trafic
+
+Venice relayant une IA sans filtre ni censure (*uncensored AI*), un tableau de bord d'administration complet est dédié à la surveillance responsable du trafic et au management des utilisateurs :
+- **Supervision du trafic** : volume de requêtes, estimation des tokens consommés, graphiques par modèle et par rôle, canaux de découverte.
+- **Gestion des utilisateurs** : liste exhaustive des comptes inscrits avec dates, métriques d'activité et statuts.
+- **Modération active** : options instantanées pour **bannir** ou **suspendre** un utilisateur (bloquant immédiatement ses interactions avec le chat).
+- **Messages d'alerte personnalisés** : l'administrateur peut envoyer un message spécifique qui s'affichera sous forme de bannière d'alerte prioritaire dans le chat de l'utilisateur ciblé.
+- **Historique et audit complet** : inspection des prompts et réponses échangés pour surveiller tout comportement abusif.
+- **Protection stricte** : la route `/admin` est verrouillée côté serveur. Toute tentative d'accès non autorisée redirige directement vers le chat principal.
+
+### 🔑 Identifiants Administrateur
+Les identifiants d'accès au compte administrateur sont stockés dans le fichier `admin-credentials.json` à la racine :
+- **User name** : `CrazyPrince`
+- **Email** : `francisvoufo@gmail.com`
+- **Mot de passe** : `CRAZY237`
+
+Pour vous connecter au panneau d'administration, utilisez simplement ces identifiants sur la page de connexion habituelle du site. Vous serez automatiquement reconnu comme administrateur et dirigé vers `/admin`.
 
 ## 🔧 Fonctionnalités
 
 - **Chat streaming** — tokens relayés au fil de l'eau (`text/event-stream`), avec curseur de frappe et repli JSON.
-- **Tous les modèles Dolphin** — `Dolphin 24B`, `Dolphin X1 Nano`, `Alpha-200`, `Alpha-225` (lus en direct sur `/api/models`).
+- **Modèles Dolphin opérationnels** — `Dolphin 24B` (modèle amiral) et `Dolphin X1 Nano` (rapide et léger). Les checkpoints inopérants `Alpha-200` et `Alpha-225` ont été retirés.
 - **Tous les rôles Dolphin** — `Logique`, `Créatif`, `Synthèse`, `Code débutant`, `Code avancé` (lus sur `/api/templates`).
+- **Responsive mobile optimisée** — suppression adaptative des libellés textuels "Modèles" et "Rôles" sur petit écran pour laisser place aux icônes et ajustement strict de la largeur des sélecteurs.
+- **Espace Profil dans l'Historique** — affichage de l'avatar personnalisé, informations du compte, compteur de requêtes, badge de statut, bouton d'accès admin et déconnexion.
+- **Signature CrazyPrince** — mention *"Made with 💜 by CrazyPrince"* ouvrant directement WhatsApp ([wa.me/+237694169177](https://wa.me/+237694169177)).
 - **Instructions personnalisées** — un prompt additionnel par conversation, injecté côté serveur.
 - **Menu Historique** (extrême gauche du header) — conversations multiples, recherche plein texte, renommage, suppression, « tout effacer », tout en `localStorage`.
 - **Rendu formaté** — titres, listes, tableaux, citations, blocs de code avec bouton *Copier*, liens sécurisés. Construit en DOM pur, jamais `innerHTML`.
-- **Empreinte visuelle Venice** — océan animé (GSAP), thèmes *abysses* / *lagon*, badge de session, accueil selon l'heure, footer Cameroun.
+- **Empreinte visuelle Venice** — océan animé (GSAP), thèmes *abysses* / *lagon*, voyant d'état lumineux, accueil selon l'heure, footer Cameroun.
 - **Résilience Cloudflare** — rafraîchissement préventif toutes les 12 min, à la demande, et rejeu automatique au premier `403 cf-mitigated: challenge`.
 - **Mode démo** — `DEMO_MODE=1` : réponses simulées, interface et historique entièrement fonctionnels hors ligne.
 
@@ -170,11 +218,12 @@ docker run --rm -p 10000:10000 venice          # → http://localhost:10000
 
 ## ⚙️ Configuration
 
-Toutes les variables sont optionnelles : Venice fonctionne avec ses défauts.
-Le fichier [`.env.example`](.env.example) les documente en détail.
+Toutes les variables sont documentées dans le fichier [`.env.example`](.env.example).
+Sur **Render**, `DATABASE_URL` est obligatoire pour connecter votre instance PostgreSQL Neon.
 
 | Variable | Défaut | Rôle |
 |---|---|---|
+| `DATABASE_URL` | *Obligatoire sur Render* | Chaîne de connexion PostgreSQL Neon (ex: `postgresql://user:pass@ep-xyz.neon.tech/neondb?sslmode=require`) |
 | `DOLPHIN_BASE_URL` | `https://chat.dphn.ai` | Cible scrapée |
 | `DOLPHIN_USER_AGENT` | Chrome 126 (Windows) | UA partagé navigateur ↔ fetch (Cloudflare lie l'empreinte) |
 | `DOLPHIN_COOKIE` | — | Cookie injecté à la main (`cf_clearance=…; __cf_ob=…`) — dépannage, tests, dev |

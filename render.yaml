@@ -35,6 +35,9 @@ services:
       # Mode démo : passez à 1 pour tester l'interface sans toucher à Dolphin.
       - key: DEMO_MODE
         value: "0"
+      # Database Neon PostgreSQL (obligatoire)
+      - key: DATABASE_URL
+        sync: false # à renseigner directement sur le dashboard Render
       # Jeton des routes d'administration (POST /api/session/refresh).
       - key: ADMIN_TOKEN
         sync: false # vous le saisissez dans le dashboard, il n'entre jamais dans le repo

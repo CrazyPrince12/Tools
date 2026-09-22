@@ -16,7 +16,7 @@
 
   <link rel="icon" href="/assets/venice.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="/assets/venice.svg" />
-  <link rel="stylesheet" href="/style.css?v=20260919" />
+  <link rel="stylesheet" href="/style.css?v=20260922" />
 
   <script>
     // Applique le thème avant le rendu pour éviter le flash.
@@ -31,7 +31,7 @@
   </script>
 </head>
 <body>
-  <!-- Décor : océan animé (GSAP quand disponible, CSS sinon). -->
+  <!-- Décor : océan animé -->
   <div class="ocean" aria-hidden="true">
     <div class="ocean-glow"></div>
     <svg class="ocean-waves" viewBox="0 0 1440 320" preserveAspectRatio="none">
@@ -42,7 +42,7 @@
     <div class="bubbles" id="bubbles"></div>
   </div>
 
-  <!-- Icônes SVG réutilisées dans toute l'interface (aucun emoji). -->
+  <!-- Icônes SVG réutilisées dans toute l'interface -->
   <svg class="svg-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
     <defs>
       <linearGradient id="skin" x1="0" y1="0" x2="0.9" y2="1">
@@ -97,7 +97,6 @@
         <path fill="currentColor" d="M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0-14a1 1 0 0 1 1 1v1.2a1 1 0 1 1-2 0V4a1 1 0 0 1 1-1Zm0 15.8a1 1 0 0 1 1 1V21a1 1 0 1 1-2 0v-1.2a1 1 0 0 1 1-1ZM3 12a1 1 0 0 1 1-1h1.2a1 1 0 1 1 0 2H4a1 1 0 0 1-1-1Zm15.8 0a1 1 0 0 1 1-1H21a1 1 0 1 1 0 2h-1.2a1 1 0 0 1-1-1ZM5.6 5.6a1 1 0 0 1 1.4 0l.9.9a1 1 0 0 1-1.4 1.4l-.9-.9a1 1 0 0 1 0-1.4Zm10.5 10.5a1 1 0 0 1 1.4 0l.9.9a1 1 0 0 1-1.4 1.4l-.9-.9a1 1 0 0 1 0-1.4Zm2.3-10.5a1 1 0 0 1 0 1.4l-.9.9a1 1 0 1 1-1.4-1.4l.9-.9a1 1 0 0 1 1.4 0ZM7.9 16.1a1 1 0 0 1 0 1.4l-.9.9a1 1 0 0 1-1.4-1.4l.9-.9a1 1 0 0 1 1.4 0Z"/>
       </symbol>
 
-      <!-- Menu historique -->
       <symbol id="icon-menu" viewBox="0 0 24 24">
         <path fill="currentColor" d="M4 6.5a1.25 1.25 0 0 1 1.25-1.25h13.5a1.25 1.25 0 1 1 0 2.5H5.25A1.25 1.25 0 0 1 4 6.5Zm0 5.5A1.25 1.25 0 0 1 5.25 10.75h13.5a1.25 1.25 0 1 1 0 2.5H5.25A1.25 1.25 0 0 1 4 12Zm1.25 4.25a1.25 1.25 0 1 0 0 2.5h8.5a1.25 1.25 0 1 0 0-2.5h-8.5Z"/>
       </symbol>
@@ -108,10 +107,6 @@
 
       <symbol id="icon-search" viewBox="0 0 24 24">
         <path fill="currentColor" d="M10.5 3a7.5 7.5 0 1 0 4.55 13.46l4.24 4.25a1.2 1.2 0 0 0 1.7-1.7l-4.24-4.25A7.5 7.5 0 0 0 10.5 3Zm-5.1 7.5a5.1 5.1 0 1 1 10.2 0 5.1 5.1 0 0 1-10.2 0Z"/>
-      </symbol>
-
-      <symbol id="icon-pen" viewBox="0 0 24 24">
-        <path fill="currentColor" d="M15.7 2.9a2.2 2.2 0 0 1 3.1 0l2.3 2.3a2.2 2.2 0 0 1 0 3.1l-9.2 9.2-4.2 1.1a1 1 0 0 1-1.2-1.2l1.1-4.2 9.2-9.2Zm1.6 1.6-8.4 8.4-.7 2.6 2.6-.7 8.4-8.4-1.9-1.9ZM4 20.4a1 1 0 0 1 1-1h14a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1Z"/>
       </symbol>
 
       <symbol id="icon-chip" viewBox="0 0 24 24">
@@ -141,35 +136,32 @@
       <symbol id="icon-tune" viewBox="0 0 24 24">
         <path fill="currentColor" d="M4 6.2h9.4a3.1 3.1 0 0 1 6 0H20a1.2 1.2 0 1 1 0 2.4h-.6a3.1 3.1 0 0 1-6 0H4a1.2 1.2 0 1 1 0-2.4Zm0 9.2h2.6a3.1 3.1 0 0 1 6 0H20a1.2 1.2 0 1 1 0 2.4H12.6a3.1 3.1 0 0 1-6 0H4a1.2 1.2 0 1 1 0-2.4Z"/>
       </symbol>
-
-      <symbol id="icon-link" viewBox="0 0 24 24">
-        <path fill="currentColor" d="M9.9 14.1a1.2 1.2 0 0 1 0-1.7l2.5-2.5a1.2 1.2 0 1 1 1.7 1.7l-2.5 2.5a1.2 1.2 0 0 1-1.7 0Zm-3.4 5.2a5 5 0 0 1 0-7.1l2.4-2.4a1.2 1.2 0 0 1 1.7 1.7L8.2 13.9a2.6 2.6 0 0 0 3.7 3.7l2.4-2.4a1.2 1.2 0 1 1 1.7 1.7l-2.4 2.4a5 5 0 0 1-7.1 0Zm9.9-9.9a1.2 1.2 0 0 1 1.7 0 5 5 0 0 1 0 7.1l-2.4 2.4a1.2 1.2 0 0 1-1.7-1.7l2.4-2.4a2.6 2.6 0 0 0-3.7-3.7l-2.4 2.4a1.2 1.2 0 1 1-1.7-1.7l2.4-2.4a5 5 0 0 1 7.1 0Z"/>
-      </symbol>
     </defs>
   </svg>
 
   <header class="app-header" role="banner">
     <div class="header-left">
-      <!-- Menu historique — en haut à l'extrême gauche. -->
-      <button id="historyToggle" class="icon-button icon-button-lg" type="button" aria-label="Ouvrir l'historique des conversations" aria-expanded="false" title="Historique des conversations">
+      <!-- Menu historique — à l'extrême gauche -->
+      <button id="historyToggle" class="icon-button icon-button-lg" type="button" aria-label="Ouvrir l'historique et profil" aria-expanded="false" title="Menu & Historique">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-menu"></use></svg>
       </button>
 
+      <!-- Titre Venice avec espace libéré -->
       <div class="brand">
         <span class="brand-badge" aria-hidden="true">
           <svg class="brand-dolphin" viewBox="0 0 128 128"><use href="#icon-dolphin"></use></svg>
         </span>
         <span class="brand-text">
           <span class="brand-name">Venice</span>
-          <span class="brand-sub">par Crazy Prince</span>
+          <span class="brand-sub">par <a href="https://wa.me/+237694169177" target="_blank" rel="noopener noreferrer" class="creator-link">CrazyPrince</a></span>
         </span>
       </div>
     </div>
 
     <div class="header-actions">
-      <span id="statusBadge" class="status-badge status-loading" title="État de la passerelle Dolphin">
-        <span class="dot" aria-hidden="true"></span><span id="statusText">connexion…</span>
-      </span>
+      <!-- Voyant 3 couleurs uniquement (vert, gris, rouge) sans texte qui déborde -->
+      <span id="statusIndicator" class="status-indicator status-gray" role="status" aria-label="Voyant passerelle Dolphin" title="Passerelle : Initialisation en cours (Gris)"></span>
+
       <button id="themeToggle" class="icon-button" type="button" aria-label="Changer de thème" title="Changer de thème">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use id="themeIcon" href="#icon-moon"></use></svg>
       </button>
@@ -184,22 +176,22 @@
     </div>
   </header>
 
-  <!-- Barre d'outils : modèles + rôles du chat Dolphin. -->
+  <!-- Barre d'outils : modèles + rôles Dolphin (responsive ajustée) -->
   <div class="toolbar" role="group" aria-label="Modèle et rôle">
-    <div class="tool-group">
+    <div class="tool-group tool-group-model">
       <label class="tool-label" for="modelSelect">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-chip"></use></svg>
-        Modèle
+        <span class="tool-label-text">Modèle</span>
       </label>
       <select id="modelSelect" class="tool-select" aria-label="Modèle Dolphin">
         <option value="">chargement…</option>
       </select>
     </div>
 
-    <div class="tool-group">
+    <div class="tool-group tool-group-template">
       <label class="tool-label" for="templateSelect">
         <svg class="icon" id="templateIcon" viewBox="0 0 24 24" aria-hidden="true"><use id="templateIconUse" href="#icon-brain"></use></svg>
-        Rôle
+        <span class="tool-label-text">Rôle</span>
       </label>
       <select id="templateSelect" class="tool-select" aria-label="Rôle (template) Dolphin">
         <option value="">chargement…</option>
@@ -225,14 +217,23 @@
     </div>
   </section>
 
+  <!-- Bannière d'alerte personnalisée envoyée par l'admin -->
+  <div id="userAlertBanner" class="user-alert-banner" hidden>
+    <div class="user-alert-content">
+      <span class="user-alert-icon">🔔</span>
+      <span id="userAlertText">Message administrateur</span>
+    </div>
+    <button id="dismissAlertBtn" class="user-alert-close" type="button" aria-label="Fermer l'alerte">✕</button>
+  </div>
+
   <main id="chat" class="chat">
     <div id="emptyState" class="empty-state">
       <span class="empty-logo" aria-hidden="true">
         <svg class="empty-dolphin" viewBox="0 0 128 128"><use href="#icon-dolphin"></use></svg>
       </span>
       <h1 id="greeting" class="greeting"></h1>
-      <p class="empty-sub">Je suis <strong>Venice</strong>, créée par Crazy Prince.</p>
-      <p class="empty-hint" id="emptyHint">Modèles et rôles du chat Dolphin, relayés en direct.</p>
+      <p class="empty-sub">Je suis <strong>Venice</strong>, créée par <a href="https://wa.me/+237694169177" target="_blank" rel="noopener noreferrer" class="creator-link">CrazyPrince</a>.</p>
+      <p class="empty-hint" id="emptyHint">Demandez ce que vous voulez sans risque de censure.</p>
     </div>
 
     <div id="messages" class="messages" aria-label="Conversation" role="log" aria-live="polite"></div>
@@ -254,22 +255,59 @@
       </button>
     </form>
     <p class="composer-note">
-      Powered by Crazy Prince <span class="sep" aria-hidden="true">|</span> From Cameroun
+      Powered by <a href="https://wa.me/+237694169177" target="_blank" rel="noopener noreferrer" class="creator-link">CrazyPrince</a> <span class="sep" aria-hidden="true">|</span> From Cameroun
       <img class="flag" src="/assets/cameroun.svg" width="21" height="14" alt="Cameroun" />
     </p>
   </footer>
 
   <!-- ------------------------------------------------------------------ -->
-  <!-- Historique : conversations sauvegardées en local (localStorage)     -->
+  <!-- Historique & Espace Profil Utilisateur                              -->
   <!-- ------------------------------------------------------------------ -->
   <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
 
-  <aside id="historyDrawer" class="drawer" aria-label="Historique des conversations" aria-hidden="true" hidden>
+  <aside id="historyDrawer" class="drawer" aria-label="Historique et Profil" aria-hidden="true" hidden>
     <div class="drawer-head">
-      <h2>Historique</h2>
+      <h2>Menu Venice</h2>
       <button id="drawerClose" class="icon-button" type="button" aria-label="Fermer l'historique" title="Fermer">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-close"></use></svg>
       </button>
+    </div>
+
+    <!-- Espace Profil d'Utilisateur -->
+    <div id="drawerProfile" class="drawer-profile">
+      <!-- État Connecté -->
+      <div id="profileLoggedIn" class="profile-card" hidden>
+        <div class="profile-header">
+          <div id="profileAvatar" class="profile-avatar">CP</div>
+          <div class="profile-info">
+            <span id="profilePseudo" class="profile-pseudo">Pseudo</span>
+            <span id="profileUsername" class="profile-username">@username</span>
+          </div>
+        </div>
+        <div class="profile-details">
+          <span id="profileEmail" class="profile-email">email@domaine.com</span>
+          <div class="profile-badges-row">
+            <span id="profileReqCount" class="profile-pill">0 requêtes</span>
+            <span id="profileStatusBadge" class="profile-pill profile-status-active">Actif</span>
+          </div>
+        </div>
+        <div class="profile-actions">
+          <a id="profileAdminBtn" href="/admin" class="profile-action-btn profile-admin-btn" hidden>
+            👑 Panneau Admin
+          </a>
+          <button id="profileLogoutBtn" class="profile-action-btn profile-logout-btn" type="button">
+            Se déconnecter
+          </button>
+        </div>
+      </div>
+
+      <!-- État Non connecté -->
+      <div id="profileLoggedOut" class="profile-prompt-box">
+        <p class="profile-prompt-desc">Accédez à l'expérience complète sans censure.</p>
+        <button id="drawerOpenAuthBtn" class="drawer-login-btn" type="button">
+          Se connecter / S'inscrire
+        </button>
+      </div>
     </div>
 
     <button id="drawerNew" class="drawer-new" type="button">
@@ -289,12 +327,75 @@
       <span id="historyCount" class="history-count">0 conversation</span>
       <button id="historyClearAll" class="link-button" type="button">Tout effacer</button>
     </div>
-    <p class="drawer-note">Stocké dans ce navigateur uniquement — rien n'est envoyé au serveur.</p>
+    <p class="drawer-note">Made with 💜 by <a href="https://wa.me/+237694169177" target="_blank" rel="noopener noreferrer" class="creator-link">CrazyPrince</a></p>
   </aside>
+
+  <!-- ------------------------------------------------------------------ -->
+  <!-- Modal Login / Sign-up Wall (avec Chat Preview)                      -->
+  <!-- ------------------------------------------------------------------ -->
+  <div id="authModal" class="auth-modal-backdrop" hidden>
+    <div class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
+      <button id="closeAuthModalBtn" class="auth-modal-close" type="button" aria-label="Fermer">✕</button>
+
+      <div class="auth-modal-header">
+        <div class="auth-modal-logo">
+          <svg viewBox="0 0 128 128"><use href="#icon-dolphin"></use></svg>
+        </div>
+        <h2 id="authModalTitle" class="auth-modal-title">Rejoignez Venice</h2>
+        <p class="auth-modal-sub">Connectez-vous ou inscrivez-vous en 30 secondes pour envoyer votre prompt.</p>
+      </div>
+
+      <!-- Onglets Connexion / Inscription -->
+      <div class="auth-modal-tabs" role="tablist">
+        <button id="tabLogin" class="auth-modal-tab is-active" type="button" role="tab" aria-selected="true">Connexion</button>
+        <button id="tabRegister" class="auth-modal-tab" type="button" role="tab" aria-selected="false">Inscription</button>
+      </div>
+
+      <div id="modalAuthError" class="modal-auth-error" hidden></div>
+
+      <!-- Formulaire Connexion -->
+      <form id="modalLoginForm" class="modal-auth-form" autocomplete="on">
+        <div class="form-group">
+          <label class="form-label" for="modalLoginIdentifier">E-mail ou nom d'utilisateur</label>
+          <input id="modalLoginIdentifier" class="form-input" type="text" required placeholder="CrazyPrince ou mon@email.com" autocomplete="username" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="modalLoginPassword">Mot de passe</label>
+          <input id="modalLoginPassword" class="form-input" type="password" required placeholder="••••••••" autocomplete="current-password" />
+        </div>
+        <button id="modalLoginSubmit" class="modal-submit-btn" type="submit">Se connecter & Envoyer</button>
+      </form>
+
+      <!-- Formulaire Inscription -->
+      <form id="modalRegisterForm" class="modal-auth-form" autocomplete="on" hidden>
+        <div class="form-group">
+          <label class="form-label" for="modalRegPseudo">Pseudo (nom affiché)</label>
+          <input id="modalRegPseudo" class="form-input" type="text" required placeholder="Ex : Shadow, Alex…" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="modalRegUsername">user_name (sans espace)</label>
+          <input id="modalRegUsername" class="form-input" type="text" required pattern="^[a-zA-Z0-9_\-\.]{3,30}$" placeholder="Ex : shadow_dev" autocomplete="username" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="modalRegEmail">Adresse e-mail</label>
+          <input id="modalRegEmail" class="form-input" type="email" required placeholder="Ex : contact@domaine.com" autocomplete="email" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="modalRegHeard">Où avez-vous entendu parler de Venice pour la 1ère fois ?</label>
+          <input id="modalRegHeard" class="form-input" type="text" required placeholder="Ex : WhatsApp, Ami, TikTok, X…" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="modalRegPassword">Mot de passe</label>
+          <input id="modalRegPassword" class="form-input" type="password" required minlength="6" placeholder="Au moins 6 caractères" autocomplete="new-password" />
+        </div>
+        <button id="modalRegisterSubmit" class="modal-submit-btn" type="submit">Créer mon compte & Envoyer</button>
+      </form>
+    </div>
+  </div>
 
   <div id="errorToast" class="error-toast" role="alert" hidden></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
-  <script src="/script.js?v=20260919" type="module"></script>
+  <script src="/script.js?v=20260922" type="module"></script>
 </body>
 </html>

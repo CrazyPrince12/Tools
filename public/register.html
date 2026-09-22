@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="fr" data-theme="deep">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Venice — Inscription</title>
+  <meta name="description" content="Créez votre compte Venice pour discuter sans filtre ni censure." />
+  <link rel="icon" href="/assets/venice.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/style.css?v=20260922" />
+  <style>
+    .auth-page {
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
+      position: relative;
+      z-index: 10;
+    }
+
+    .auth-card {
+      width: 100%;
+      max-width: 460px;
+      padding: 32px 28px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: color-mix(in srgb, var(--surface-solid) 85%, transparent);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 24px 60px rgba(0, 14, 26, 0.65);
+    }
+
+    .auth-header {
+      text-align: center;
+      margin-bottom: 22px;
+    }
+
+    .auth-logo {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 25%, var(--bg-3), var(--bg));
+      border: 1px solid var(--border-strong);
+      box-shadow: 0 0 25px color-mix(in srgb, var(--aqua) 25%, transparent);
+      margin-bottom: 10px;
+    }
+
+    .auth-logo svg {
+      width: 40px;
+      height: 40px;
+    }
+
+    .auth-title {
+      font-size: 1.45rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin: 0 0 4px;
+      background: linear-gradient(100deg, var(--foam), var(--aqua) 45%, var(--blue));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .auth-sub {
+      font-size: 0.86rem;
+      color: var(--muted);
+      margin: 0;
+    }
+
+    .auth-form {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .form-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .form-hint {
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+
+    .form-input, .form-select {
+      width: 100%;
+      padding: 10px 13px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.9rem;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      box-sizing: border-box;
+    }
+
+    .form-select option {
+      background: var(--surface-solid);
+      color: var(--text);
+    }
+
+    .form-input:focus, .form-select:focus {
+      outline: none;
+      border-color: var(--aqua);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--aqua) 25%, transparent);
+    }
+
+    .form-input::placeholder {
+      color: color-mix(in srgb, var(--muted) 60%, transparent);
+    }
+
+    .auth-btn {
+      width: 100%;
+      padding: 12px;
+      margin-top: 8px;
+      border-radius: 999px;
+      border: none;
+      background: linear-gradient(135deg, var(--aqua), var(--blue));
+      color: #04121f;
+      font-weight: 700;
+      font-size: 0.94rem;
+      cursor: pointer;
+      transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 6px 20px color-mix(in srgb, var(--aqua) 30%, transparent);
+    }
+
+    .auth-btn:hover {
+      filter: brightness(1.1);
+      transform: translateY(-1px);
+    }
+
+    .auth-footer {
+      margin-top: 20px;
+      text-align: center;
+      font-size: 0.84rem;
+      color: var(--muted);
+    }
+
+    .auth-link {
+      color: var(--aqua);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      font-weight: 600;
+    }
+
+    .auth-error {
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--err) 16%, transparent);
+      border: 1px solid color-mix(in srgb, var(--err) 40%, transparent);
+      color: var(--err);
+      font-size: 0.82rem;
+      display: none;
+      margin-bottom: 12px;
+    }
+
+    .back-home {
+      margin-top: 18px;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.82rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.15s;
+    }
+
+    .back-home:hover {
+      color: var(--aqua);
+    }
+  </style>
+</head>
+<body>
+  <!-- Décor océan animé -->
+  <div class="ocean" aria-hidden="true">
+    <div class="ocean-glow"></div>
+    <svg class="ocean-waves" viewBox="0 0 1440 320" preserveAspectRatio="none">
+      <path class="wave wave-1" d="M0,192 C240,120 480,264 720,192 C960,120 1200,264 1440,192 L1440,320 L0,320 Z"></path>
+      <path class="wave wave-2" d="M0,224 C240,160 480,288 720,224 C960,160 1200,288 1440,224 L1440,320 L0,320 Z"></path>
+      <path class="wave wave-3" d="M0,256 C240,208 480,304 720,256 C960,208 1200,304 1440,256 L1440,320 L0,320 Z"></path>
+    </svg>
+    <div class="bubbles" id="bubbles"></div>
+  </div>
+
+  <main class="auth-page">
+    <div class="auth-card">
+      <div class="auth-header">
+        <a href="/" class="auth-logo" title="Retour à Venice">
+          <svg viewBox="0 0 128 128">
+            <defs>
+              <linearGradient id="skin-reg" x1="0" y1="0" x2="0.9" y2="1">
+                <stop offset="0%" stop-color="#8ff7ea"/>
+                <stop offset="45%" stop-color="#35e0d4"/>
+                <stop offset="100%" stop-color="#2a8fe0"/>
+              </linearGradient>
+            </defs>
+            <path fill="url(#skin-reg)" d="M124,63 C117,60 111,59 105,59 C99,46 91,40 79,40 C69,40 60,43 54,47 C53,39 49,32 43,28 C45,36 43,43 37,49 C35,51 33,52 32,54 C27,47 20,42 10,38 C18,48 25,55 30,64 C25,72 18,79 10,86 C20,80 27,74 34,70 C42,76 50,79 58,79 C66,79 72,78 76,76 C74,85 69,92 61,98 C71,92 77,85 81,75 C89,73 94,71 99,69 C105,67 111,65 116,64 C120,63 122,63 124,63 Z"/>
+            <circle cx="97" cy="57" r="3.4" fill="#04222f"/>
+          </svg>
+        </a>
+        <h1 class="auth-title">Rejoindre Venice</h1>
+        <p class="auth-sub">Accédez à l'intelligence sans filtre</p>
+      </div>
+
+      <div id="authError" class="auth-error"></div>
+
+      <form id="registerForm" class="auth-form" autocomplete="on">
+        <div class="form-group">
+          <label class="form-label" for="pseudo">Pseudo (nom affiché)</label>
+          <input
+            id="pseudo"
+            name="pseudo"
+            class="form-input"
+            type="text"
+            required
+            placeholder="Ex : Alex, Shadow, CyberDev…"
+            autofocus
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="username">Nom d'utilisateur (user_name sans espace)</label>
+          <input
+            id="username"
+            name="username"
+            class="form-input"
+            type="text"
+            required
+            pattern="^[a-zA-Z0-9_\-\.]{3,30}$"
+            title="Sans espace, lettres, chiffres, tirets, underscores ou points (3 à 30 caractères)"
+            placeholder="Ex : alex_dev (aucun espace)"
+            autocomplete="username"
+          />
+          <span class="form-hint">Strictement sans espace. Utilisable pour la connexion.</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="email">Adresse e-mail</label>
+          <input
+            id="email"
+            name="email"
+            class="form-input"
+            type="email"
+            required
+            placeholder="Ex : alex@example.com"
+            autocomplete="email"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="heard_from">Où avez-vous entendu parler de Venice pour la première fois ?</label>
+          <input
+            id="heard_from"
+            name="heard_from"
+            class="form-input"
+            type="text"
+            required
+            placeholder="Ex : WhatsApp, Ami, TikTok, Twitter/X, Forum…"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">Mot de passe</label>
+          <input
+            id="password"
+            name="password"
+            class="form-input"
+            type="password"
+            required
+            minlength="6"
+            placeholder="Au moins 6 caractères"
+            autocomplete="new-password"
+          />
+        </div>
+
+        <button type="submit" id="submitBtn" class="auth-btn">Créer mon compte</button>
+      </form>
+
+      <div class="auth-footer">
+        Vous avez déjà un compte ? <a href="/login" class="auth-link">Se connecter</a>
+      </div>
+    </div>
+
+    <a href="/" class="back-home">← Retour au chat preview</a>
+  </main>
+
+  <script type="module">
+    const form = document.getElementById("registerForm");
+    const errorBox = document.getElementById("authError");
+    const submitBtn = document.getElementById("submitBtn");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errorBox.style.display = "none";
+      errorBox.textContent = "";
+
+      const pseudo = document.getElementById("pseudo").value.trim();
+      const username = document.getElementById("username").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const heard_from = document.getElementById("heard_from").value.trim();
+      const password = document.getElementById("password").value;
+
+      if (/\s/.test(username)) {
+        errorBox.textContent = "Le user_name ne doit contenir aucun espace.";
+        errorBox.style.display = "block";
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Création du compte…";
+
+      try {
+        const res = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pseudo, username, email, heard_from, password }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error?.message || "Échec de l'inscription.");
+        }
+
+        // Sauvegarde locale
+        localStorage.setItem("venice_token", data.token);
+        localStorage.setItem("venice_user", JSON.stringify(data.user));
+
+        // Redirection vers le chat
+        window.location.href = "/";
+      } catch (err) {
+        errorBox.textContent = err.message;
+        errorBox.style.display = "block";
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Créer mon compte";
+      }
+    });
+  </script>
+</body>
+</html>
