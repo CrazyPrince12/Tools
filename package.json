@@ -8,7 +8,7 @@
     "start": "node server.js",
     "dev": "node server.js",
     "demo": "DEMO_MODE=1 node server.js",
-    "test": "node --test tests/venice.test.mjs tests/auth-admin.test.mjs tests/geo.test.mjs",
+    "test": "node --test tests/venice.test.mjs tests/auth-admin.test.mjs tests/geo.test.mjs tests/history.test.mjs",
     "test:real": "node tests/real-check.mjs",
     "mock": "node tests/mock-dolphin.mjs",
     "browser:install": "playwright install --with-deps chromium"
