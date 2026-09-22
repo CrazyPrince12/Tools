@@ -17,8 +17,6 @@ import { createServer } from "node:http";
 const MODELS = [
   { id: "dolphinserver:24B", label: "Dolphin 24B", vision: false },
   { id: "dolphinserver2:6b", label: "Dolphin X1 Nano", vision: false },
-  { id: "dolphinserver3:trinity-mini-step200", label: "Alpha-200", vision: false },
-  { id: "dolphinserver3:trinity-mini-step225", label: "Alpha-225", vision: false },
 ];
 
 const TEMPLATES = ["logical", "creative", "summary", "code-beginner", "code-advanced"].map((name) => ({

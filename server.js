@@ -4,7 +4,9 @@
 //   • expose l'API de la passerelle (lib/httpApi.js) :
 //       POST /api/chat · GET /api/models · GET /api/templates
 //       GET /api/catalog · GET /api/health · POST /api/session/refresh
+//       Routes Auth (/api/auth/*) et Admin (/api/admin/*)
 //   • démarre la boucle de rafraîchissement du cookie Cloudflare
+//   • initialise la base de données Neon PostgreSQL / Local
 //
 // C'est le point d'entrée utilisé en local, dans la preview sandbox, sur
 // Render (runtime Docker ou Node) et dans n'importe quel conteneur.
@@ -17,11 +19,23 @@ import { fileURLToPath } from "node:url";
 import { loadDotEnv } from "./lib/env.js";
 import { getConfig } from "./lib/config.js";
 import { createRuntime } from "./lib/runtime.js";
+import { initDb } from "./lib/db.js";
+import { authenticateRequest } from "./lib/auth.js";
 import {
   handleCatalogHttp,
   handleChatHttp,
   handleHealthHttp,
   handleSessionRefresh,
+  handleAuthRegister,
+  handleAuthLogin,
+  handleAuthMe,
+  handleAuthLogout,
+  handleAuthDismissAlert,
+  handleAdminStats,
+  handleAdminUsers,
+  handleAdminUserMessages,
+  handleAdminUserStatus,
+  handleAdminUserAlert,
   sendJson,
 } from "./lib/httpApi.js";
 
@@ -65,7 +79,12 @@ function securityHeaders(res) {
 /* -------------------------------------------------------------------------- */
 
 async function serveStatic(req, res, pathname) {
-  const rel = pathname === "/" ? "index.html" : decodeURIComponent(pathname).replace(/^\/+/, "");
+  let rel = pathname === "/" ? "index.html" : decodeURIComponent(pathname).replace(/^\/+/, "");
+
+  // Pages dédiées
+  if (rel === "login" || rel === "login/") rel = "login.html";
+  if (rel === "register" || rel === "register/") rel = "register.html";
+  if (rel === "admin" || rel === "admin/") rel = "admin.html";
 
   // Protection contre la traversée de répertoires.
   const filePath = normalize(join(PUBLIC_DIR, rel));
@@ -125,10 +144,12 @@ export function createApp(env = process.env, runtime = createRuntime(env)) {
     securityHeaders(res);
 
     try {
+      // Chat
       if (pathname === "/api/chat" || pathname === "/api/chat/") {
         await handleChatHttp(req, res, runtime);
         return;
       }
+      // Catalogues
       if (pathname === "/api/models" || pathname === "/api/models/") {
         await handleCatalogHttp(req, res, runtime, "models");
         return;
@@ -149,12 +170,72 @@ export function createApp(env = process.env, runtime = createRuntime(env)) {
         await handleSessionRefresh(req, res, runtime);
         return;
       }
+
+      // Routes d'authentification
+      if (pathname === "/api/auth/register") {
+        await handleAuthRegister(req, res);
+        return;
+      }
+      if (pathname === "/api/auth/login") {
+        await handleAuthLogin(req, res);
+        return;
+      }
+      if (pathname === "/api/auth/me") {
+        await handleAuthMe(req, res);
+        return;
+      }
+      if (pathname === "/api/auth/logout") {
+        await handleAuthLogout(req, res);
+        return;
+      }
+      if (pathname === "/api/auth/dismiss-alert") {
+        await handleAuthDismissAlert(req, res);
+        return;
+      }
+
+      // Routes d'administration
+      if (pathname === "/api/admin/stats") {
+        await handleAdminStats(req, res);
+        return;
+      }
+      if (pathname === "/api/admin/users") {
+        await handleAdminUsers(req, res);
+        return;
+      }
+      const userMsgMatch = pathname.match(/^\/api\/admin\/users\/([^/]+)\/messages$/);
+      if (userMsgMatch) {
+        await handleAdminUserMessages(req, res, decodeURIComponent(userMsgMatch[1]));
+        return;
+      }
+      const userStatusMatch = pathname.match(/^\/api\/admin\/users\/([^/]+)\/status$/);
+      if (userStatusMatch) {
+        await handleAdminUserStatus(req, res, decodeURIComponent(userStatusMatch[1]));
+        return;
+      }
+      const userAlertMatch = pathname.match(/^\/api\/admin\/users\/([^/]+)\/alert$/);
+      if (userAlertMatch) {
+        await handleAdminUserAlert(req, res, decodeURIComponent(userAlertMatch[1]));
+        return;
+      }
+
       if (pathname.startsWith("/api/")) {
         sendJson(res, 404, {
           error: { status: 404, message: `Route inconnue : ${pathname}` },
         });
         return;
       }
+
+      // Protection stricte de la route /admin :
+      // "Faites en sorte que même si une personne utilise une route sans se connecter il ne puisse ouvrir la page admin, il sera redirigé au chat"
+      if (pathname === "/admin" || pathname === "/admin/" || pathname === "/admin.html") {
+        const auth = await authenticateRequest(req);
+        if (!auth || auth.user.role !== "admin") {
+          res.writeHead(302, { Location: "/?auth_required=admin" });
+          res.end();
+          return;
+        }
+      }
+
       if (req.method !== "GET" && req.method !== "HEAD") {
         sendJson(res, 405, {
           error: { status: 405, message: "Méthode non autorisée." },
@@ -176,8 +257,11 @@ export function createApp(env = process.env, runtime = createRuntime(env)) {
   return server;
 }
 
-/** Démarre le serveur + la boucle de session Cloudflare. */
-export function startServer(env = process.env) {
+/** Démarre le serveur + la boucle de session Cloudflare + initialise la DB. */
+export async function startServer(env = process.env) {
+  // Initialisation de la base de données Neon PostgreSQL ou local fallback
+  await initDb(env.DATABASE_URL);
+
   const cfg = getConfig(env);
   const runtime = createRuntime(env);
   const server = createApp(env, runtime);

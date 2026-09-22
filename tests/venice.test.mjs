@@ -288,7 +288,7 @@ test("GET /api/catalog renvoie les modèles et rôles de l'amont", async () => {
     const data = await res.json();
     assert.equal(res.status, 200);
     assert.equal(data.source, "live");
-    assert.equal(data.models.length, 4);
+    assert.equal(data.models.length, 2);
     assert.equal(data.models[0].id, "dolphinserver:24B");
     assert.equal(data.models[0].label, "Dolphin 24B");
     assert.equal(data.templates.length, 5);
@@ -355,7 +355,7 @@ test("un challenge Cloudflare déclenche un rafraîchissement puis un rejeu", as
     const res = await fetch(`${base}/api/models`);
     const data = await res.json();
     assert.equal(res.status, 200);
-    assert.equal(data.data.length, 4);
+    assert.equal(data.data.length, 2);
     assert.ok(mock.state.challenged >= 1, "le mock a bien opposé un challenge");
     assert.equal(solver.calls(), 1, "le cookie a été renouvelé une fois");
     assert.match(session.cookieHeader, /cf_clearance=good/);
@@ -410,7 +410,7 @@ test("le catalogue de secours prend le relais si l'amont est injoignable", async
   try {
     const data = await (await fetch(`${base}/api/models`)).json();
     assert.equal(data.source, "fallback");
-    assert.equal(data.data.length, 4);
+    assert.equal(data.data.length, 2);
     assert.ok(data.warning, "l'avertissement est transmis à l'interface");
   } finally {
     await new Promise((resolve) => server.close(resolve));

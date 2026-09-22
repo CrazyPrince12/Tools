@@ -16,8 +16,8 @@ export const DEFAULT_MODEL = "dolphinserver:24B";
 export const DEFAULT_TEMPLATE = "logical";
 
 /**
- * Catalogue de secours — relevé exact de /api/models le 2026-09-19.
- * `vision` et `label` viennent de l'API ; `blurb` et `tone` sont nos ajouts.
+ * Catalogue de secours — modèles actifs et fonctionnels de Dolphin.
+ * Les checkpoints expérimentaux non fonctionnels (Alpha-200, Alpha-225) sont retirés.
  */
 export const FALLBACK_MODELS = [
   {
@@ -34,21 +34,13 @@ export const FALLBACK_MODELS = [
     blurb: "Ultra rapide et économe : idéal pour les questions courtes et l'itération.",
     tone: "fast",
   },
-  {
-    id: "dolphinserver3:trinity-mini-step200",
-    label: "Alpha-200",
-    vision: false,
-    blurb: "Checkpoint expérimental Trinity-mini : créatif et imprévisible.",
-    tone: "experimental",
-  },
-  {
-    id: "dolphinserver3:trinity-mini-step225",
-    label: "Alpha-225",
-    vision: false,
-    blurb: "Checkpoint Trinity-mini plus avancé : suivi d'instructions affiné.",
-    tone: "experimental",
-  },
 ];
+
+/** Modèles explicitement retirés car inopérants. */
+export const EXCLUDED_MODEL_IDS = new Set([
+  "dolphinserver3:trinity-mini-step200",
+  "dolphinserver3:trinity-mini-step225",
+]);
 
 /**
  * Rôles (templates) de secours — relevés exacts de /api/templates le 2026-09-19.
@@ -81,6 +73,17 @@ function labelFromId(id) {
 export function normalizeModel(raw) {
   const id = typeof raw === "string" ? raw : raw?.id;
   if (!id || typeof id !== "string") return null;
+
+  // Filtrer les modèles non fonctionnels
+  if (
+    EXCLUDED_MODEL_IDS.has(id) ||
+    id.includes("step200") ||
+    id.includes("step225") ||
+    (typeof raw === "object" && (raw.label === "Alpha-200" || raw.label === "Alpha-225"))
+  ) {
+    return null;
+  }
+
   const known = FALLBACK_MODELS.find((m) => m.id === id);
   const label =
     (typeof raw === "object" && typeof raw.label === "string" && raw.label.trim()) ||

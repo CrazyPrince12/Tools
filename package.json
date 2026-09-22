@@ -8,7 +8,7 @@
     "start": "node server.js",
     "dev": "node server.js",
     "demo": "DEMO_MODE=1 node server.js",
-    "test": "node --test tests/venice.test.mjs",
+    "test": "node --test tests/venice.test.mjs tests/auth-admin.test.mjs",
     "test:real": "node tests/real-check.mjs",
     "mock": "node tests/mock-dolphin.mjs",
     "browser:install": "playwright install --with-deps chromium"
@@ -38,6 +38,9 @@
     "node": ">=20"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
+    "bcryptjs": "^3.0.3",
+    "pg": "^8.23.0",
     "playwright": "^1.63.0"
   }
 }

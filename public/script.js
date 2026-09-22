@@ -32,8 +32,7 @@ const el = {
   newBtn: document.getElementById("newChat"),
   themeToggle: document.getElementById("themeToggle"),
   themeIcon: document.getElementById("themeIcon"),
-  statusBadge: document.getElementById("statusBadge"),
-  statusText: document.getElementById("statusText"),
+  statusIndicator: document.getElementById("statusIndicator"),
   errorToast: document.getElementById("errorToast"),
   bubbles: document.getElementById("bubbles"),
 
@@ -1163,14 +1162,27 @@ function startRename(item, id) {
 }
 
 /* ------------------------------------------------------------------ */
-/* État du serveur (badge)                                             */
+/* État du serveur (voyant 3 couleurs : vert, gris, rouge)             */
 /* ------------------------------------------------------------------ */
 
 async function refreshHealth() {
   try {
     const res = await fetch("/api/health");
     const health = await res.json();
-    el.statusBadge.classList.remove("status-loading", "status-ok", "status-demo", "status-error");
+    if (el.statusIndicator) {
+      el.statusIndicator.className = "status-indicator";
+
+      if (health.demoMode) {
+        el.statusIndicator.classList.add("status-green");
+        el.statusIndicator.title = "Passerelle active (Mode démo — Vert)";
+      } else if (health.session?.hasCookie || health.session?.state === "warm") {
+        el.statusIndicator.classList.add("status-green");
+        el.statusIndicator.title = "Passerelle connectée et opérationnelle (Vert)";
+      } else {
+        el.statusIndicator.classList.add("status-gray");
+        el.statusIndicator.title = "Session en cours / Initialisation (Gris)";
+      }
+    }
 
     // Les limites d'historique peuvent venir du serveur.
     if (health.history) {
@@ -1179,24 +1191,17 @@ async function refreshHealth() {
       MAX_CONVERSATIONS = health.history.maxConversations ?? MAX_CONVERSATIONS;
     }
 
-    if (health.demoMode) {
-      el.statusBadge.classList.add("status-demo");
-      el.statusText.textContent = "mode démo";
-    } else if (health.session?.hasCookie || health.session?.state === "warm") {
-      el.statusBadge.classList.add("status-ok");
-      el.statusText.textContent = "connecté";
-    } else {
-      el.statusBadge.classList.add("status-loading");
-      el.statusText.textContent = "session en cours";
+    if (el.emptyHint) {
+      el.emptyHint.textContent = "Demandez ce que vous voulez sans risque de censure.";
     }
-
-    el.emptyHint.textContent = health.demoMode
-      ? "Mode démo : réponses simulées, interface complète."
-      : `Modèles et rôles du chat Dolphin${health.upstream?.systemMode ? ` · session ${health.session?.state ?? "?"}` : ""}.`;
   } catch {
-    el.statusBadge.classList.remove("status-loading", "status-ok", "status-demo");
-    el.statusBadge.classList.add("status-error");
-    el.statusText.textContent = "hors ligne";
+    if (el.statusIndicator) {
+      el.statusIndicator.className = "status-indicator status-red";
+      el.statusIndicator.title = "Passerelle hors ligne ou amont injoignable (Rouge)";
+    }
+    if (el.emptyHint) {
+      el.emptyHint.textContent = "Demandez ce que vous voulez sans risque de censure.";
+    }
   }
 }
 
@@ -1365,9 +1370,13 @@ async function sendMessage(text) {
   };
 
   try {
+    const token = localStorage.getItem("venice_token");
     const res = await fetch("/api/chat", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { "Authorization": `Bearer ${token}` } : {})
+      },
       body: JSON.stringify(buildPayload(conversation)),
     });
 
@@ -1483,6 +1492,294 @@ async function sendMessage(text) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Authentification & Login Wall avec Chat Preview                    */
+/* ------------------------------------------------------------------ */
+
+let currentUser = null;
+let pendingPrompt = null;
+
+const authModal = document.getElementById("authModal");
+const closeAuthModalBtn = document.getElementById("closeAuthModalBtn");
+const tabLogin = document.getElementById("tabLogin");
+const tabRegister = document.getElementById("tabRegister");
+const modalLoginForm = document.getElementById("modalLoginForm");
+const modalRegisterForm = document.getElementById("modalRegisterForm");
+const modalAuthError = document.getElementById("modalAuthError");
+const drawerOpenAuthBtn = document.getElementById("drawerOpenAuthBtn");
+const profileLogoutBtn = document.getElementById("profileLogoutBtn");
+const dismissAlertBtn = document.getElementById("dismissAlertBtn");
+
+function openAuthModal(initialTab = "login") {
+  if (!authModal) return;
+  authModal.hidden = false;
+  if (modalAuthError) {
+    modalAuthError.hidden = true;
+    modalAuthError.textContent = "";
+  }
+  switchAuthTab(initialTab);
+}
+
+function closeAuthModal() {
+  if (!authModal) return;
+  authModal.hidden = true;
+}
+
+function switchAuthTab(tab) {
+  if (tab === "login") {
+    tabLogin?.classList.add("is-active");
+    tabLogin?.setAttribute("aria-selected", "true");
+    tabRegister?.classList.remove("is-active");
+    tabRegister?.setAttribute("aria-selected", "false");
+    if (modalLoginForm) modalLoginForm.hidden = false;
+    if (modalRegisterForm) modalRegisterForm.hidden = true;
+    document.getElementById("modalLoginIdentifier")?.focus();
+  } else {
+    tabRegister?.classList.add("is-active");
+    tabRegister?.setAttribute("aria-selected", "true");
+    tabLogin?.classList.remove("is-active");
+    tabLogin?.setAttribute("aria-selected", "false");
+    if (modalRegisterForm) modalRegisterForm.hidden = false;
+    if (modalLoginForm) modalLoginForm.hidden = true;
+    document.getElementById("modalRegPseudo")?.focus();
+  }
+}
+
+if (tabLogin) tabLogin.addEventListener("click", () => switchAuthTab("login"));
+if (tabRegister) tabRegister.addEventListener("click", () => switchAuthTab("register"));
+if (closeAuthModalBtn) closeAuthModalBtn.addEventListener("click", closeAuthModal);
+
+if (drawerOpenAuthBtn) {
+  drawerOpenAuthBtn.addEventListener("click", () => {
+    closeDrawer();
+    openAuthModal("login");
+  });
+}
+
+async function checkAuthStatus() {
+  const token = localStorage.getItem("venice_token");
+  if (!token) {
+    updateProfileUI(null);
+    return;
+  }
+  try {
+    const res = await fetch("/api/auth/me", {
+      headers: { "Authorization": `Bearer ${token}` },
+    });
+    const data = await res.json();
+    if (res.ok && data.authenticated && data.user) {
+      currentUser = data.user;
+      localStorage.setItem("venice_user", JSON.stringify(data.user));
+      updateProfileUI(currentUser);
+      checkUserAlert(currentUser);
+    } else {
+      currentUser = null;
+      localStorage.removeItem("venice_token");
+      localStorage.removeItem("venice_user");
+      updateProfileUI(null);
+    }
+  } catch (err) {
+    console.warn("[auth] Vérification échouée :", err.message);
+  }
+}
+
+function updateProfileUI(user) {
+  const loggedInBox = document.getElementById("profileLoggedIn");
+  const loggedOutBox = document.getElementById("profileLoggedOut");
+  const pseudoEl = document.getElementById("profilePseudo");
+  const usernameEl = document.getElementById("profileUsername");
+  const emailEl = document.getElementById("profileEmail");
+  const avatarEl = document.getElementById("profileAvatar");
+  const reqEl = document.getElementById("profileReqCount");
+  const adminBtn = document.getElementById("profileAdminBtn");
+
+  if (user) {
+    if (loggedInBox) loggedInBox.hidden = false;
+    if (loggedOutBox) loggedOutBox.hidden = true;
+
+    if (pseudoEl) pseudoEl.textContent = user.pseudo || user.username;
+    if (usernameEl) usernameEl.textContent = `@${user.username}`;
+    if (emailEl) emailEl.textContent = user.email || "";
+    if (avatarEl) {
+      const initials = (user.pseudo || user.username || "U").slice(0, 2).toUpperCase();
+      avatarEl.textContent = initials;
+    }
+    if (reqEl) reqEl.textContent = `${user.requestCount || 0} req`;
+
+    if (adminBtn) {
+      adminBtn.hidden = user.role !== "admin";
+    }
+  } else {
+    if (loggedInBox) loggedInBox.hidden = true;
+    if (loggedOutBox) loggedOutBox.hidden = false;
+    if (adminBtn) adminBtn.hidden = true;
+  }
+}
+
+function checkUserAlert(user) {
+  const banner = document.getElementById("userAlertBanner");
+  const alertText = document.getElementById("userAlertText");
+  if (!banner || !alertText) return;
+
+  if (user?.alertMessage) {
+    alertText.textContent = user.alertMessage;
+    banner.hidden = false;
+  } else {
+    banner.hidden = true;
+  }
+}
+
+if (dismissAlertBtn) {
+  dismissAlertBtn.addEventListener("click", async () => {
+    const banner = document.getElementById("userAlertBanner");
+    if (banner) banner.hidden = true;
+    const token = localStorage.getItem("venice_token");
+    if (token) {
+      try {
+        await fetch("/api/auth/dismiss-alert", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${token}` },
+        });
+      } catch {}
+    }
+  });
+}
+
+if (profileLogoutBtn) {
+  profileLogoutBtn.addEventListener("click", async () => {
+    const token = localStorage.getItem("venice_token");
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        headers: token ? { "Authorization": `Bearer ${token}` } : {},
+      });
+    } catch {}
+    localStorage.removeItem("venice_token");
+    localStorage.removeItem("venice_user");
+    currentUser = null;
+    updateProfileUI(null);
+    checkUserAlert(null);
+    showToast("Déconnexion réussie.", "À bientôt sur Venice.");
+  });
+}
+
+// Soumission du formulaire modal Login
+if (modalLoginForm) {
+  modalLoginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (modalAuthError) modalAuthError.hidden = true;
+    const identifier = document.getElementById("modalLoginIdentifier").value.trim();
+    const password = document.getElementById("modalLoginPassword").value;
+    const submitBtn = document.getElementById("modalLoginSubmit");
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Connexion…";
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error?.message || "Identifiants invalides.");
+      }
+
+      localStorage.setItem("venice_token", data.token);
+      localStorage.setItem("venice_user", JSON.stringify(data.user));
+      currentUser = data.user;
+      updateProfileUI(currentUser);
+      checkUserAlert(currentUser);
+      closeAuthModal();
+
+      if (data.isAdmin || data.user?.role === "admin") {
+        showToast("👑 Connecté en tant qu'administrateur.", "Accès au panneau de gestion activé.");
+      }
+
+      // Si un prompt était en attente, le lancer directement !
+      if (pendingPrompt) {
+        const text = pendingPrompt;
+        pendingPrompt = null;
+        el.input.value = "";
+        autoResize();
+        sendMessage(text);
+      } else {
+        showToast(`Bienvenue ${currentUser.pseudo || currentUser.username} !`);
+      }
+    } catch (err) {
+      if (modalAuthError) {
+        modalAuthError.textContent = err.message;
+        modalAuthError.hidden = false;
+      }
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Se connecter & Envoyer";
+    }
+  });
+}
+
+// Soumission du formulaire modal Register
+if (modalRegisterForm) {
+  modalRegisterForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (modalAuthError) modalAuthError.hidden = true;
+
+    const pseudo = document.getElementById("modalRegPseudo").value.trim();
+    const username = document.getElementById("modalRegUsername").value.trim();
+    const email = document.getElementById("modalRegEmail").value.trim();
+    const heard_from = document.getElementById("modalRegHeard").value.trim();
+    const password = document.getElementById("modalRegPassword").value;
+
+    if (/\s/.test(username)) {
+      if (modalAuthError) {
+        modalAuthError.textContent = "Le user_name ne doit comporter aucun espace.";
+        modalAuthError.hidden = false;
+      }
+      return;
+    }
+
+    const submitBtn = document.getElementById("modalRegisterSubmit");
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Création du compte…";
+
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pseudo, username, email, heard_from, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error?.message || "Échec d'inscription.");
+      }
+
+      localStorage.setItem("venice_token", data.token);
+      localStorage.setItem("venice_user", JSON.stringify(data.user));
+      currentUser = data.user;
+      updateProfileUI(currentUser);
+      closeAuthModal();
+
+      if (pendingPrompt) {
+        const text = pendingPrompt;
+        pendingPrompt = null;
+        el.input.value = "";
+        autoResize();
+        sendMessage(text);
+      } else {
+        showToast(`Compte créé ! Bienvenue ${currentUser.pseudo || currentUser.username}.`);
+      }
+    } catch (err) {
+      if (modalAuthError) {
+        modalAuthError.textContent = err.message;
+        modalAuthError.hidden = false;
+      }
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Créer mon compte & Envoyer";
+    }
+  });
+}
+
+/* ------------------------------------------------------------------ */
 /* Événements                                                          */
 /* ------------------------------------------------------------------ */
 
@@ -1490,6 +1787,14 @@ el.form.addEventListener("submit", (event) => {
   event.preventDefault();
   const value = el.input.value.trim();
   if (!value) return;
+
+  // Login Wall avec Chat Preview : Demande de connexion/inscription au 1er prompt
+  if (!currentUser) {
+    pendingPrompt = value;
+    openAuthModal("login");
+    return;
+  }
+
   el.input.value = "";
   autoResize();
   sendMessage(value);
@@ -1533,7 +1838,16 @@ function init() {
   if (!el.messages.children.length) animateEmptyState();
   loadCatalog();
   refreshHealth();
+  checkAuthStatus();
   setInterval(refreshHealth, 60_000);
+
+  // Message si redirection admin
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("auth_required") === "admin") {
+    showToast("Accès restreint", "Connectez-vous en tant qu'administrateur pour accéder au panneau.");
+    openAuthModal("login");
+  }
+
   el.input.focus();
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
