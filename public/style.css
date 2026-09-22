@@ -1452,6 +1452,14 @@ a:focus-visible {
   opacity: 0.75;
 }
 
+.drawer-note .icon {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.15em;
+  color: var(--aqua);
+}
+
 /* ---------------------- Méta des messages (modèle + rôle) ----------------- */
 
 .msg-model {
@@ -1634,6 +1642,17 @@ a:focus-visible {
 
 .profile-admin-btn:hover {
   background: linear-gradient(135deg, rgba(255, 193, 7, 0.3), rgba(53, 224, 212, 0.3));
+}
+
+/* La classe .profile-action-btn impose display:flex : elle écraserait
+   l'attribut `hidden` (voyant admin visible pour tous). On le neutralise. */
+.profile-action-btn[hidden] {
+  display: none;
+}
+
+.profile-admin-btn .icon {
+  width: 14px;
+  height: 14px;
 }
 
 .profile-logout-btn {

@@ -1209,7 +1209,7 @@ async function refreshHealth() {
 /* Toast d'erreur                                                      */
 /* ------------------------------------------------------------------ */
 
-function showToast(message, action) {
+function showToast(message, action, icon = "icon-alert") {
   clearTimeout(toastTimer);
   el.errorToast.replaceChildren();
 
@@ -1232,7 +1232,7 @@ function showToast(message, action) {
   close.append(svgIcon("icon-close"));
   close.addEventListener("click", hideToast);
 
-  el.errorToast.append(svgIcon("icon-alert"), body, close);
+  el.errorToast.append(svgIcon(icon), body, close);
   el.errorToast.hidden = false;
   if (useGsap) gsap.from(el.errorToast, { y: 20, opacity: 0, duration: 0.3, ease: "power2.out" });
   toastTimer = setTimeout(hideToast, 9000);
@@ -1692,7 +1692,7 @@ if (modalLoginForm) {
       closeAuthModal();
 
       if (data.isAdmin || data.user?.role === "admin") {
-        showToast("👑 Connecté en tant qu'administrateur.", "Accès au panneau de gestion activé.");
+        showToast("Connecté en tant qu'administrateur.", "Accès au panneau de gestion activé.", "icon-crown");
       }
 
       // Si un prompt était en attente, le lancer directement !
