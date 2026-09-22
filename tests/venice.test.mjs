@@ -523,6 +523,16 @@ test("les fichiers statiques sont servis et la traversée est bloquée", async (
     const html = await index.text();
     assert.match(html, /Venice/);
     assert.match(html, /historyDrawer/);
+    assert.match(html, /IA non censurée/);
+    assert.doesNotMatch(html, /Discute avec Venice/);
+    assert.match(html, /property="og:image"/);
+    assert.doesNotMatch(html, /__OG_ORIGIN__/);
+    assert.ok(html.includes(`content="${ctx.base}/assets/og.png"`));
+
+    const og = await fetch(`${ctx.base}/assets/og.png`);
+    assert.equal(og.status, 200);
+    assert.match(og.headers.get("content-type"), /image\/png/);
+    assert.ok(Number(og.headers.get("content-length")) > 1000);
 
     const css = await fetch(`${ctx.base}/style.css`);
     assert.equal(css.status, 200);

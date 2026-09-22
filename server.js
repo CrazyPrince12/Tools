@@ -78,6 +78,34 @@ function securityHeaders(res) {
   res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
 }
 
+/**
+ * Origine publique de la requête (schéma + hôte).
+ * Utilisée pour réécrire les balises Open Graph : les crawlers sociaux
+ * (WhatsApp, Facebook, X, Discord…) exigent une URL d'image absolue.
+ */
+function requestOrigin(req) {
+  const host = String(req.headers["x-forwarded-host"] || req.headers.host || "")
+    .split(",")[0]
+    .trim();
+  if (!host) return "";
+  const forwarded = String(req.headers["x-forwarded-proto"] || "")
+    .split(",")[0]
+    .trim()
+    .toLowerCase();
+  const proto =
+    forwarded === "http" || forwarded === "https"
+      ? forwarded
+      : host.startsWith("localhost") || host.startsWith("127.")
+        ? "http"
+        : "https";
+  return `${proto}://${host}`;
+}
+
+/** Injecte l'origine dans les placeholders Open Graph des pages HTML. */
+function applyOgOrigin(html, req) {
+  return html.replaceAll("__OG_ORIGIN__", requestOrigin(req));
+}
+
 /* -------------------------------------------------------------------------- */
 /* Fichiers statiques                                                         */
 /* -------------------------------------------------------------------------- */
@@ -103,12 +131,28 @@ async function serveStatic(req, res, pathname) {
 
     const ext = extname(filePath).toLowerCase();
     const isHtml = ext === ".html";
+
+    if (isHtml) {
+      const html = applyOgOrigin(await readFile(filePath, "utf8"), req);
+      const body = Buffer.from(html, "utf8");
+      res.writeHead(200, {
+        "Content-Type": MIME[ext],
+        "Content-Length": body.length,
+        "Cache-Control": "no-cache",
+        "Last-Modified": info.mtime.toUTCString(),
+      });
+      if (req.method === "HEAD") {
+        res.end();
+        return;
+      }
+      res.end(body);
+      return;
+    }
+
     res.writeHead(200, {
       "Content-Type": MIME[ext] ?? "application/octet-stream",
       "Content-Length": info.size,
-      "Cache-Control": isHtml
-        ? "no-cache"
-        : `public, max-age=${SECONDS.asset}, immutable`,
+      "Cache-Control": `public, max-age=${SECONDS.asset}, immutable`,
       "Last-Modified": info.mtime.toUTCString(),
     });
     if (req.method === "HEAD") {
@@ -120,9 +164,14 @@ async function serveStatic(req, res, pathname) {
     // Repli SPA : toute route inconnue (sans extension) rend l'index.
     if (!extname(rel)) {
       try {
-        const html = await readFile(join(PUBLIC_DIR, "index.html"));
-        res.writeHead(200, { "Content-Type": MIME[".html"], "Cache-Control": "no-cache" });
-        res.end(html);
+        const html = applyOgOrigin(await readFile(join(PUBLIC_DIR, "index.html"), "utf8"), req);
+        const body = Buffer.from(html, "utf8");
+        res.writeHead(200, {
+          "Content-Type": MIME[".html"],
+          "Content-Length": body.length,
+          "Cache-Control": "no-cache",
+        });
+        res.end(body);
         return;
       } catch {
         /* passe au 404 */
