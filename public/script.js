@@ -60,6 +60,8 @@ const el = {
 };
 
 let store = loadStore();
+/** Incrémenté à chaque effacement local (déconnexion / changement d'utilisateur). */
+let storeEpoch = 0;
 let catalog = { models: [], templates: [] };
 let busy = false;
 let toastTimer = null;
@@ -156,6 +158,15 @@ function loadStore() {
 let saveTimer = null;
 function saveStore({ immediate = false } = {}) {
   const write = () => {
+    // Personne n'est connecté (déconnexion) : on ne persiste plus,
+    // pour ne pas réexposer le chat au prochain utilisateur de l'onglet.
+    let connected = false;
+    try {
+      connected = Boolean(localStorage.getItem("venice_token"));
+    } catch {
+      /* localStorage indisponible */
+    }
+    if (!connected) return;
     try {
       const payload = {
         version: 2,
@@ -281,6 +292,29 @@ function clearAllConversations() {
   if (busy) return;
   store = emptyStore();
   saveStore({ immediate: true });
+  renderMessages();
+  renderHistory();
+  renderPersona();
+  renderGreeting();
+  syncEmptyState();
+  animateEmptyState();
+}
+
+/**
+ * Efface définitivement les conversations locales : la clé localStorage
+ * est retirée (pas seulement vidée) et l'écran repart sur l'état initial,
+ * pour que le prochain utilisateur du même navigateur ne voie plus rien.
+ */
+function wipeLocalChat() {
+  storeEpoch += 1;
+  clearTimeout(saveTimer);
+  store = emptyStore();
+  try {
+    localStorage.removeItem(STORE_KEY);
+  } catch {
+    /* localStorage indisponible */
+  }
+  el.input.value = "";
   renderMessages();
   renderHistory();
   renderPersona();
@@ -1324,6 +1358,9 @@ function buildPayload(conversation) {
 async function sendMessage(text) {
   if (!text || busy) return;
 
+  // Si le chat est effacé en cours de route (déconnexion), la réponse
+  // ne doit ni s'afficher ni se persister pour le prochain utilisateur.
+  const epochAtSend = storeEpoch;
   const conversation = ensureConversation();
   const model = el.modelSelect.value || conversation.model;
   const template = el.templateSelect.value || conversation.template;
@@ -1435,6 +1472,11 @@ async function sendMessage(text) {
       removeTyping();
       if (!answer.trim()) throw new Error("Réponse vide.");
       finishBubble();
+      if (epochAtSend !== storeEpoch) {
+        // Déconnexion pendant le stream : on jette la réponse plutôt
+        // que de la réattacher au chat du nouvel utilisateur.
+        return;
+      }
       conversation.messages.push({ role: "assistant", content: answer, ts: Date.now(), model, template });
       touchConversation(conversation);
       saveStore({ immediate: true });
@@ -1458,6 +1500,10 @@ async function sendMessage(text) {
     }
     removeTyping();
     answer = payload.reply;
+    if (epochAtSend !== storeEpoch) {
+      // Déconnexion pendant la requête : on ne persiste rien.
+      return;
+    }
     conversation.messages.push({ role: "assistant", content: answer, ts: Date.now(), model, template });
     touchConversation(conversation);
     saveStore({ immediate: true });
@@ -1465,6 +1511,12 @@ async function sendMessage(text) {
     appendMessage("assistant", answer, { ts: Date.now(), model, template });
   } catch (error) {
     removeTyping();
+
+    if (epochAtSend !== storeEpoch) {
+      // Le chat a été effacé pendant la requête (déconnexion) : on ne
+      // remet plus rien en place, ni dans le DOM ni dans le stockage.
+      return;
+    }
 
     if (answer.trim()) {
       // Réponse partielle : on la garde, elle vaut mieux que rien.
@@ -1581,6 +1633,7 @@ async function checkAuthStatus() {
       currentUser = null;
       localStorage.removeItem("venice_token");
       localStorage.removeItem("venice_user");
+      wipeLocalChat(); // plus connecté → plus de chat local
       updateProfileUI(null);
     } else {
       // Erreur serveur inattendue : on garde la session, un nouvel essai
@@ -1639,6 +1692,33 @@ function checkUserAlert(user) {
   }
 }
 
+/** Utilisateur enregistré dans ce navigateur avant la (re)connexion. */
+function previousUser() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem("venice_user") || "null");
+    return parsed && typeof parsed.username === "string" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Si l'utilisateur qui vient de se connecter n'est pas celui qui était
+ * connecté précédemment sur ce navigateur, ses conversations locales
+ * (celles du précédent) sont effacées : le chat ne doit jamais
+ * s'afficher — ni pouvoir être supprimé — chez le nouvel utilisateur.
+ */
+function clearChatForNewUser(user) {
+  if (!user || !user.username) return;
+  const previous = previousUser();
+  if (!previous || previous.username === user.username) return;
+  const hasChat = store.conversations.some(
+    (conversation) => conversation.messages.length > 0 || conversation.instructions.trim()
+  );
+  if (!hasChat) return;
+  wipeLocalChat();
+}
+
 if (dismissAlertBtn) {
   dismissAlertBtn.addEventListener("click", async () => {
     const banner = document.getElementById("userAlertBanner");
@@ -1667,6 +1747,7 @@ if (profileLogoutBtn) {
     localStorage.removeItem("venice_token");
     localStorage.removeItem("venice_user");
     currentUser = null;
+    wipeLocalChat(); // le chat doit disparaître pour le prochain utilisateur
     updateProfileUI(null);
     checkUserAlert(null);
     showToast("Déconnexion réussie.", "À bientôt sur Venice.");
@@ -1695,6 +1776,7 @@ if (modalLoginForm) {
         throw new Error(data.error?.message || "Identifiants invalides.");
       }
 
+      clearChatForNewUser(data.user);
       localStorage.setItem("venice_token", data.token);
       localStorage.setItem("venice_user", JSON.stringify(data.user));
       currentUser = data.user;
@@ -1763,6 +1845,7 @@ if (modalRegisterForm) {
         throw new Error(data.error?.message || "Échec d'inscription.");
       }
 
+      clearChatForNewUser(data.user);
       localStorage.setItem("venice_token", data.token);
       localStorage.setItem("venice_user", JSON.stringify(data.user));
       currentUser = data.user;

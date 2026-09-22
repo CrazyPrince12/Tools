@@ -1139,6 +1139,8 @@
       } catch {}
       localStorage.removeItem("venice_token");
       localStorage.removeItem("venice_user");
+      // Le chat local ne doit pas rester pour le prochain utilisateur.
+      localStorage.removeItem("venice.store.v2");
       window.location.href = "/login";
     });
 
