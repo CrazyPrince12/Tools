@@ -221,6 +221,63 @@ test("Modération Admin : Bannir un utilisateur et message d'alerte", async () =
   }
 });
 
+test("Inscription : IP + localisation capturées côté serveur, visibles admin, jamais exposées au client", async () => {
+  const ctx = await startTestServer();
+  const testId = Date.now();
+  const username = `geo_${testId}`;
+
+  try {
+    // Inscription : le corps de la requête ne contient AUCUN champ IP (le
+    // serveur les capture lui-même depuis la connexion TCP).
+    const regRes = await fetch(`${ctx.base}/api/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        pseudo: "Geo Test",
+        username,
+        email: `geo_${testId}@example.com`,
+        heard_from: "Tests",
+        password: "password123",
+      }),
+    });
+    assert.equal(regRes.status, 201);
+    const regData = await regRes.json();
+
+    // 1) Le client ne doit JAMAIS recevoir l'IP ni la localisation.
+    assert.equal(regData.user.register_ip, undefined);
+    assert.equal(regData.user.location, undefined);
+    assert.equal(regData.user.country_code, undefined);
+
+    // 2) L'admin voit les données dans la liste des utilisateurs.
+    const adminRes = await fetch(`${ctx.base}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ identifier: "CrazyPrince", password: "CRAZY237" }),
+    });
+    assert.equal(adminRes.status, 200);
+    const { token: adminToken } = await adminRes.json();
+
+    const usersRes = await fetch(`${ctx.base}/api/admin/users`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(usersRes.status, 200);
+    const users = await usersRes.json();
+    const me = users.find((u) => u.id === regData.user.id);
+    assert.ok(me, "l'utilisateur doit apparaître dans la liste admin");
+    // Serveur de test en boucle locale → IP privée → localisation « Local »
+    // (aucun appel API externe n'est effectué).
+    assert.equal(me.register_ip, "127.0.0.1");
+    assert.equal(me.location, "Local");
+    assert.equal(me.country_code, null);
+
+    // 3) Un non-admin ne peut pas consulter cette liste.
+    const anonRes = await fetch(`${ctx.base}/api/admin/users`);
+    assert.equal(anonRes.status, 403);
+  } finally {
+    await ctx.close();
+  }
+});
+
 test("Persistance : cookie 90 jours + session glissante", async () => {
   const ctx = await startTestServer();
   const testId = Date.now();

@@ -81,6 +81,7 @@ Venice adopte le modèle moderne de **Login Wall avec Chat Preview** :
 Venice relayant une IA sans filtre ni censure (*uncensored AI*), un tableau de bord d'administration complet est dédié à la surveillance responsable du trafic et au management des utilisateurs :
 - **Supervision du trafic** : volume de requêtes, estimation des tokens consommés, graphiques par modèle et par rôle, canaux de découverte.
 - **Gestion des utilisateurs** : liste exhaustive des comptes inscrits avec dates, métriques d'activité et statuts.
+- **IP & localisation** : à l'inscription, l'adresse IP de l'utilisateur et sa localisation approximative (ville / région / pays, résolue via des API gratuites ipapi.co → ip-api.com → freegeoip.app) sont capturées côté serveur et affichées dans le tableau des utilisateurs (recherchables). Données « fixes » : enregistrées une seule fois à l'inscription, jamais renvoyées au navigateur. `VENICE_IP_GEO=0` désactive la résolution de localisation (l'IP reste enregistrée).
 - **Modération active** : options instantanées pour **bannir** ou **suspendre** un utilisateur (bloquant immédiatement ses interactions avec le chat).
 - **Messages d'alerte personnalisés** : l'administrateur peut envoyer un message spécifique qui s'affichera sous forme de bannière d'alerte prioritaire dans le chat de l'utilisateur ciblé.
 - **Historique et audit complet** : inspection des prompts et réponses échangés pour surveiller tout comportement abusif.
@@ -242,6 +243,7 @@ Sur **Render**, `DATABASE_URL` est obligatoire pour connecter votre instance Pos
 | `VENICE_MAX_CONVERSATIONS` | `60` | Conversations conservées (navigateur) |
 | `VENICE_SYSTEM_PROMPT` | `src/prompt.js` | Remplace le prompt système |
 | `DEMO_MODE` | `0` | `1` = réponses simulées, aucun appel sortant |
+| `VENICE_IP_GEO` | `1` | Géolocalisation IP à l'inscription pour le panneau admin (`0` = IP seule, sans appel API) |
 | `ADMIN_TOKEN` | — | Active `POST /api/session/refresh` (en-tête `x-admin-token`) |
 | `PORT` / `HOST` | `3000` / `0.0.0.0` | Écoute HTTP |
 
