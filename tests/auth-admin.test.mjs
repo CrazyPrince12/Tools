@@ -220,3 +220,67 @@ test("Modération Admin : Bannir un utilisateur et message d'alerte", async () =
     await ctx.close();
   }
 });
+
+test("Persistance : cookie 90 jours + session glissante", async () => {
+  const ctx = await startTestServer();
+  const testId = Date.now();
+
+  try {
+    // 1. Inscription -> cookie PERSISTANT (Max-Age = 90 jours), pas un cookie
+    //    de session qui meurt a la fermeture du navigateur.
+    const regRes = await fetch(`${ctx.base}/api/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        pseudo: "Persist Test",
+        username: `persist_${testId}`,
+        email: `persist_${testId}@example.com`,
+        heard_from: "Google",
+        password: "password123",
+      }),
+    });
+    assert.equal(regRes.status, 201);
+    const regCookie = regRes.headers.get("set-cookie") || "";
+    assert.match(regCookie, /venice_session=/);
+    assert.match(regCookie, /Max-Age=7776000/); // 90 jours
+    assert.match(regCookie, /HttpOnly/);
+    assert.match(regCookie, /SameSite=Lax/);
+
+    // 2. /api/auth/me renvoie authenticated + la date d'expiration de session.
+    const { token } = await regRes.json();
+    const meRes = await fetch(`${ctx.base}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    assert.equal(meRes.status, 200);
+    const meData = await meRes.json();
+    assert.equal(meData.authenticated, true);
+    assert.ok(new Date(meData.sessionExpiresAt).getTime() > Date.now());
+
+    // 3. Session glissante : une session bientot expiree (J+10) est prolongee
+    //    automatiquement a 90 jours au premier passage, cookie renouvele.
+    const { createUser, createSession } = await import("../lib/db.js");
+    const tmpUser = await createUser({
+      pseudo: "Slide",
+      username: `slide_${testId}`,
+      email: `slide_${testId}@example.com`,
+      heard_from: "tests",
+      password: "password123",
+    });
+    const shortSession = await createSession(tmpUser.id, 10); // 10 jours restants
+    const meRes2 = await fetch(`${ctx.base}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${shortSession.token}` },
+    });
+    assert.equal(meRes2.status, 200);
+    const meData2 = await meRes2.json();
+    assert.equal(meData2.authenticated, true);
+    const extendedDays = (new Date(meData2.sessionExpiresAt) - Date.now()) / 86400000;
+    assert.ok(
+      extendedDays > 80,
+      `session prolongee a ~90 jours (obtenu : ${extendedDays.toFixed(1)} j)`
+    );
+    const cookie2 = meRes2.headers.get("set-cookie") || "";
+    assert.match(cookie2, /Max-Age=7776000/, "le cookie doit etre renouvele");
+  } finally {
+    await ctx.close();
+  }
+});

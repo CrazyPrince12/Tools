@@ -311,6 +311,61 @@ data: {"error":{"status":503,"message":"Cloudflare exige un défi interactif…"
 
 **Option C — Node natif** (si vous fournissez le cookie vous-même) : build `npm install && npx playwright install chromium`, start `npm start`, puis renseignez `DOLPHIN_COOKIE` (valide ~30 min — à réinjecter régulièrement). Pour un usage de production, préférez Docker.
 
+## 💾 Persistance des comptes (survit aux PR, commits et redéploiements)
+
+Le disque d'un service Render est **éphémère** : à chaque déploiement (commit, merge de PR,
+redémarrage, voire suppression/recréation du service), le système de fichiers repart de zéro.
+C'est pourquoi la règle suivante s'applique :
+
+> **La base de données de référence est PostgreSQL externe (Neon), via la variable `DATABASE_URL`.**
+> Les comptes, sessions et messages y sont stockés — pas sur le disque du service.
+
+Concrètement, cela garantit que :
+
+- un **commit ou une PR qui redéploie** ne supprime aucun compte ;
+- un **redémarrage** du service ne déconnecte personne ;
+- **supprimer le service Render et le redéployer** fonctionne : la base Neon vit en dehors de
+  Render, le nouveau service s'y reconnecte et retrouve **exactement les mêmes utilisateurs**,
+  qui restent **connectés** (leurs sessions de 90 jours sont dans la base).
+
+### Mise en place (une fois pour toutes)
+
+1. Créez une base gratuite sur [neon.tech](https://neon.tech) (ou Render Postgres).
+2. Copiez l'URL de connexion (elle ressemble à
+   `postgresql://neondb_owner:…@ep-…-pooler.…neon.tech/neondb?sslmode=require`).
+3. Dans Render : *Environment → Add environment variable* → `DATABASE_URL` = cette URL.
+   Le schéma (`users`, `sessions`, `messages`) est créé automatiquement au démarrage.
+
+### Filet de sécurité intégré ("zéro perte")
+
+Si la base devient momentanément injoignable (cold-start, coupure réseau), le serveur **ne perd
+rien** et **ne déconnecte personne** :
+
+1. au démarrage, la connexion est **retentée 5 fois** avec backoff (un cold-start Neon lent ne
+   fait plus basculer le service en mode fichier local) ;
+2. si la base reste injoignable, le service continue en **mode dégradé** (visible dans
+   `/api/health` → `storage.mode: "local-degraded"`) ;
+3. dès que la base revient, tout ce qui a été créé entre-temps (comptes, sessions, messages) est
+   **synchronisé automatiquement** vers PostgreSQL, sans jamais écraser de données existantes ;
+4. si le service redémarre avant la reconnexion, le **tampon local est synchronisé au boot**
+   suivant — rien ne disparaît.
+
+### Sessions « restent connectées »
+
+- Cookie `venice_session` **persistant 90 jours** (`HttpOnly`, `SameSite=Lax`, `Secure` en HTTPS),
+  renvoyé à chaque connexion/inscription.
+- **Session glissante** : chaque activité prolonge automatiquement la session de 90 jours (dès
+  qu'il reste moins de 60 jours) et renouvelle le cookie. Un utilisateur qui revient au moins une
+  fois tous les deux mois ne se reconnecte **jamais** — même après de longues inactivités du
+  navigateur.
+- Les sessions vivent **dans la base** : elles survivent aux redéploiements.
+- Côté navigateur, une erreur temporaire du serveur (503/base injoignable) **ne déconnecte
+  jamais** : la session est conservée et revalidée plus tard.
+
+> ⚠️ Sans `DATABASE_URL` en production, le serveur affiche un avertissement explicite au
+> démarrage et les comptes ne survivront pas au déploiement suivant — vérifiez `/api/health`
+> (`storage.mode` doit valoir `"postgres"`).
+
 ## 🧪 Tests
 
 ```bash
@@ -336,6 +391,8 @@ challenge Cloudflare (`403` + `cf-mitigated: challenge`) et le streaming SSE.
 
 | Symptôme | Cause probable | Solution |
 |---|---|---|
+| « Compte introuvable » après un déploiement | `DATABASE_URL` absent ou injoignable au boot : les comptes étaient partis dans le fichier local éphémère | Renseignez `DATABASE_URL` (Neon) dans Render ; vérifiez `/api/health` → `storage.mode` doit valoir `"postgres"` ; recréez les comptes manquants (le compte admin est toujours recréé automatiquement) |
+| `/api/health` affiche `storage.mode: "local-degraded"` | Neon momentanément injoignable | Rien à faire : reconnexion automatique (~30 s) et synchronisation des données créées entre-temps ; vérifiez l'URL dans Render si ça persiste |
 | Badge « session en cours » qui ne passe jamais à « connecté » | Chromium manquant ou challenge interactif | `npx playwright install --with-deps chromium`, puis vérifiez les logs `[cf]`. Si Turnstile s'affiche, injectez `DOLPHIN_COOKIE`. |
 | `503 SOLVER_UNAVAILABLE` | Playwright absent | `npm install` puis `npx playwright install --with-deps chromium` |
 | `503 SOLVER_FAILED` (défi interactif) | Cloudflare durcit | Récupérez `cf_clearance` dans votre navigateur et posez `DOLPHIN_COOKIE` |
