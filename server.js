@@ -173,7 +173,7 @@ export function createApp(env = process.env, runtime = createRuntime(env)) {
 
       // Routes d'authentification
       if (pathname === "/api/auth/register") {
-        await handleAuthRegister(req, res);
+        await handleAuthRegister(req, res, runtime);
         return;
       }
       if (pathname === "/api/auth/login") {

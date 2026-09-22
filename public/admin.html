@@ -369,6 +369,33 @@
       color: var(--muted);
     }
 
+    .ip-pill {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+      font-size: 0.74rem;
+      font-weight: 600;
+      color: var(--aqua);
+      background: rgba(53, 224, 212, 0.08);
+      border: 1px solid rgba(53, 224, 212, 0.25);
+      white-space: nowrap;
+    }
+
+    .loc-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .loc-flag {
+      font-size: 1.05rem;
+      line-height: 1;
+    }
+
     .status-tag {
       display: inline-flex;
       align-items: center;
@@ -724,7 +751,7 @@
       <div class="table-controls">
         <h2 style="margin:0; font-size:1.15rem; color:var(--aqua);"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-users"></use></svg> Utilisateurs & Surveillance</h2>
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
-          <input id="userSearchInput" class="search-input" type="search" placeholder="Rechercher par pseudo, username, email…" />
+          <input id="userSearchInput" class="search-input" type="search" placeholder="Rechercher par pseudo, username, email, IP, localisation…" />
           <select id="userStatusFilter" class="filter-select">
             <option value="all">Tous les statuts</option>
             <option value="active">Actifs uniquement</option>
@@ -741,6 +768,8 @@
               <th>Utilisateur</th>
               <th>Email</th>
               <th>Entendu parler via</th>
+              <th>IP</th>
+              <th>Localisation</th>
               <th>Inscription</th>
               <th>Requêtes</th>
               <th>Tokens</th>
@@ -750,7 +779,7 @@
             </tr>
           </thead>
           <tbody id="usersTableBody">
-            <tr><td colspan="9" style="text-align:center; padding:30px; color:var(--muted);">Chargement des utilisateurs…</td></tr>
+            <tr><td colspan="11" style="text-align:center; padding:30px; color:var(--muted);">Chargement des utilisateurs…</td></tr>
           </tbody>
         </table>
       </div>
@@ -933,13 +962,15 @@
         const matchesQuery = !q ||
           u.pseudo?.toLowerCase().includes(q) ||
           u.username?.toLowerCase().includes(q) ||
-          u.email?.toLowerCase().includes(q);
+          u.email?.toLowerCase().includes(q) ||
+          u.register_ip?.toLowerCase().includes(q) ||
+          u.location?.toLowerCase().includes(q);
         const matchesStatus = statusFilter === "all" || u.status === statusFilter;
         return matchesQuery && matchesStatus;
       });
 
       if (!filtered.length) {
-        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:24px; color:var(--muted);">Aucun utilisateur correspondant.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:24px; color:var(--muted);">Aucun utilisateur correspondant.</td></tr>`;
         return;
       }
 
@@ -958,6 +989,8 @@
             </td>
             <td>${escapeHtml(u.email)}</td>
             <td><span class="kpi-sub">${escapeHtml(u.heard_from || '—')}</span></td>
+            <td>${u.register_ip ? `<span class="ip-pill" title="${escapeAttr(u.register_ip)}">${escapeHtml(u.register_ip)}</span>` : '<span class="kpi-sub">—</span>'}</td>
+            <td>${renderLocation(u)}</td>
             <td>${new Date(u.created_at).toLocaleDateString('fr-FR')}</td>
             <td><strong>${u.request_count || 0}</strong></td>
             <td>${(u.token_count || 0).toLocaleString()}</td>
@@ -1108,6 +1141,23 @@
       localStorage.removeItem("venice_user");
       window.location.href = "/login";
     });
+
+    // Drapeau emoji à partir du code ISO 3166-1 alpha-2 (ex. "FR" → 🇫🇷)
+    function flagEmoji(cc) {
+      if (!cc || String(cc).length !== 2) return "";
+      return String.fromCodePoint(
+        0x1f1e6 + cc.toUpperCase().charCodeAt(0) - 65,
+        0x1f1e6 + cc.toUpperCase().charCodeAt(1) - 65
+      );
+    }
+
+    // Cellule "Localisation" : drapeau + texte (ville, région, pays)
+    function renderLocation(u) {
+      const loc = (u.location || "").trim();
+      const flag = flagEmoji(u.country_code);
+      if (!loc && !flag) return '<span class="kpi-sub">—</span>';
+      return `<span class="loc-pill"><span class="loc-flag">${flag}</span> ${escapeHtml(loc || u.country_code)}</span>`;
+    }
 
     function escapeHtml(str) {
       if (!str) return "";
