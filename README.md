@@ -291,6 +291,10 @@ data: {"error":{"status":503,"message":"Cloudflare exige un défi interactif…"
 | `GET /api/catalog` | Modèles + rôles + défauts + source (`live` / `fallback`) |
 | `GET /api/health` | État de la passerelle : session CF, catalogue, uptime, limites d'historique |
 | `POST /api/session/refresh` | Force un cookie neuf — réservé (`ADMIN_TOKEN`, en-tête `x-admin-token`) |
+| `GET /api/history` | Conversations de l'utilisateur connecté + leurs messages (authentifié) |
+| `POST /api/history/conversation` | Crée/met à jour les métadonnées d'une conversation (titre, modèle, rôle, instructions) |
+| `DELETE /api/history/conversation/:id` | Masque une conversation (suppression **logique** — jamais destructrice) |
+| `DELETE /api/history` | Masque toutes les conversations de l'utilisateur (suppression logique) |
 
 ### Codes d'erreur
 
@@ -336,7 +340,7 @@ Concrètement, cela garantit que :
 2. Copiez l'URL de connexion (elle ressemble à
    `postgresql://neondb_owner:…@ep-…-pooler.…neon.tech/neondb?sslmode=require`).
 3. Dans Render : *Environment → Add environment variable* → `DATABASE_URL` = cette URL.
-   Le schéma (`users`, `sessions`, `messages`) est créé automatiquement au démarrage.
+   Le schéma (`users`, `sessions`, `messages`, `conversations`) est créé automatiquement au démarrage.
 
 ### Filet de sécurité intégré ("zéro perte")
 
@@ -363,6 +367,23 @@ rien** et **ne déconnecte personne** :
 - Les sessions vivent **dans la base** : elles survivent aux redéploiements.
 - Côté navigateur, une erreur temporaire du serveur (503/base injoignable) **ne déconnecte
   jamais** : la session est conservée et revalidée plus tard.
+
+### Historique utilisateur (persisté en base — jamais perdu)
+
+Les conversations des utilisateurs ne dépendent plus du `localStorage` du navigateur :
+
+- chaque message de chat est enregistré en base avec son `conversation_id`, et chaque fil de
+  discussion a sa ligne dans la table `conversations` (titre, modèle, rôle, instructions) ;
+- à **chaque connexion/reconnexion** (et à chaque chargement de page authentifié), le client
+  recharge l'historique depuis `GET /api/history` : les anciens messages réapparaissent, même
+  après une déconnexion, un vidage du navigateur ou un changement d'appareil ;
+- comme dans le panneau admin, l'historique n'est **jamais supprimé physiquement** : quand
+  l'utilisateur « supprime » une conversation (ou vide sa liste), la suppression est
+  **logique** (`deleted_at`) — la conversation disparaît de sa vue, mais les messages restent
+  en base et demeurent consultables par l'admin ;
+- les messages enregistrés **avant** cette persistance (sans `conversation_id`) sont
+  automatiquement regroupés dans une conversation « Anciens messages » au premier chargement
+  de l'historique.
 
 > ⚠️ Sans `DATABASE_URL` en production, le serveur affiche un avertissement explicite au
 > démarrage et les comptes ne survivront pas au déploiement suivant — vérifiez `/api/health`

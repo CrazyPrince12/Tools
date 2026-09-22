@@ -3,7 +3,9 @@
 // Le navigateur ne connaît aucun secret : il appelle uniquement /api/*, c'est
 // le serveur (la passerelle) qui parle au chat Dolphin avec sa session
 // Cloudflare. Ce fichier gère :
-//   • les conversations multiples, sauvegardées en localStorage ;
+//   • les conversations multiples, PERSISTÉES EN BASE DE DONNÉES côté serveur
+//     (retrouvées à chaque connexion/reconnexion, même sur un autre appareil)
+//     — le localStorage ne sert que de cache hors ligne ;
 //   • le menu Historique (en haut à l'extrême gauche) ;
 //   • les sélecteurs de modèle et de rôle (catalogue Dolphin en direct) ;
 //   • le streaming SSE, le rendu formaté, le thème, les animations GSAP.
@@ -187,6 +189,175 @@ function saveStore({ immediate = false } = {}) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Historique serveur (base de données — source de vérité)             */
+/* ------------------------------------------------------------------ */
+// Le localStorage n'est qu'un cache : TOUT est enregistré en base côté
+// serveur. À chaque connexion (et reconnexion), l'historique est rechargé
+// depuis /api/history : les anciens messages redeviennent visibles, même
+// après une déconnexion, un vidage du navigateur ou un changement d'appareil.
+// Comme dans le panneau admin, rien n'est jamais détruit : les suppressions
+// demandées par l'utilisateur sont logiques (la conversation est masquée).
+
+function isLoggedIn() {
+  try {
+    return Boolean(localStorage.getItem("venice_token"));
+  } catch {
+    return false;
+  }
+}
+
+function authHeaders(extra = {}) {
+  const token = localStorage.getItem("venice_token");
+  return { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...extra };
+}
+
+/** Publie les métadonnées d'une conversation (upsert côté serveur). */
+async function pushConversationMeta(conversation) {
+  if (!conversation || !isLoggedIn()) return;
+  try {
+    await fetch("/api/history/conversation", {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({
+        id: conversation.id,
+        title: conversation.title || "",
+        model: conversation.model || "",
+        template: conversation.template || "",
+        instructions: conversation.instructions || "",
+        createdAt: conversation.createdAt,
+        updatedAt: conversation.updatedAt,
+      }),
+    });
+  } catch {
+    /* hors ligne : la synchronisation sera retentée au prochain changement */
+  }
+}
+
+/** Synchronisation anti-rebond des métadonnées vers le serveur. */
+const metaSyncTimers = new Map();
+function scheduleMetaSync(conversation, { immediate = false } = {}) {
+  if (!conversation || !isLoggedIn()) return;
+  clearTimeout(metaSyncTimers.get(conversation.id));
+  if (immediate) {
+    metaSyncTimers.delete(conversation.id);
+    pushConversationMeta(conversation);
+    return;
+  }
+  metaSyncTimers.set(
+    conversation.id,
+    setTimeout(() => {
+      metaSyncTimers.delete(conversation.id);
+      pushConversationMeta(conversation);
+    }, 800)
+  );
+}
+
+/** Masque une conversation côté serveur (suppression logique, jamais physique). */
+async function serverDeleteConversation(id) {
+  if (!isLoggedIn()) return;
+  try {
+    await fetch(`/api/history/conversation/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+  } catch {
+    /* réseau indisponible : la suppression sera rejouée au prochain pull */
+  }
+}
+
+/** Masque toutes les conversations côté serveur (suppression logique). */
+async function serverDeleteAllConversations() {
+  if (!isLoggedIn()) return;
+  try {
+    await fetch("/api/history", { method: "DELETE", headers: authHeaders() });
+  } catch {
+    /* réseau indisponible */
+  }
+}
+
+/** Fusionne l'historique reçu du serveur dans le cache local. */
+function mergeServerConversations(serverConversations) {
+  const epochAtMerge = storeEpoch;
+  const incoming = new Map();
+  for (const raw of serverConversations || []) {
+    const conversation = normalizeConversation(raw);
+    if (conversation) incoming.set(conversation.id, conversation);
+  }
+
+  const merged = new Map();
+  for (const local of store.conversations) {
+    const serverConv = incoming.get(local.id);
+    if (!serverConv) {
+      // Conversation uniquement locale (ex. créée hors ligne) : conservée
+      // et publiée vers le serveur.
+      merged.set(local.id, local);
+      scheduleMetaSync(local);
+      continue;
+    }
+    const serverIsAhead =
+      serverConv.messages.length > local.messages.length ||
+      (serverConv.messages.length === local.messages.length &&
+        serverConv.updatedAt > local.updatedAt);
+    // Le cache local n'est « en avance » que s'il est strictement plus
+    // complet (tolérance de 5 s sur l'horodatage : les horloges client et
+    // serveur ne sont jamais parfaitement alignées).
+    const localIsAhead =
+      local.messages.length > serverConv.messages.length ||
+      (local.messages.length === serverConv.messages.length &&
+        local.updatedAt > serverConv.updatedAt + 5000);
+    if (serverIsAhead && !localIsAhead) {
+      merged.set(local.id, { ...serverConv, title: serverConv.title || local.title });
+    } else {
+      merged.set(local.id, local);
+      if (localIsAhead) scheduleMetaSync(local);
+    }
+  }
+  for (const [id, serverConv] of incoming) {
+    if (!merged.has(id)) merged.set(id, serverConv);
+  }
+
+  store.conversations = [...merged.values()]
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, MAX_CONVERSATIONS);
+  if (!store.conversations.some((c) => c.id === store.activeId)) {
+    store.activeId = store.conversations[0]?.id ?? null;
+  }
+
+  if (epochAtMerge !== storeEpoch) return; // déconnexion pendant la fusion
+  saveStore({ immediate: true });
+  renderMessages();
+  renderHistory();
+  renderPersona();
+}
+
+/** Recharge l'historique depuis la base de données (après connexion). */
+async function pullServerHistory() {
+  if (!isLoggedIn()) return;
+  if (busy) {
+    // Jamais de fusion pendant un stream : on retente juste après.
+    setTimeout(pullServerHistory, 2000);
+    return;
+  }
+  try {
+    const res = await fetch("/api/history", { headers: authHeaders() });
+    if (!res.ok) return; // 401/503 : le cache local reste en place
+    const data = await res.json().catch(() => null);
+    if (!isLoggedIn()) return; // déconnexion pendant la requête
+    if (busy) {
+      // Un stream a démarré pendant la requête (ex. connexion avec message
+      // en attente) : la fusion attendrait la fin de la réponse.
+      setTimeout(pullServerHistory, 2000);
+      return;
+    }
+    if (data?.ok && Array.isArray(data.conversations)) {
+      mergeServerConversations(data.conversations);
+    }
+  } catch {
+    /* réseau indisponible : le cache local reste affiché */
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Conversations                                                       */
 /* ------------------------------------------------------------------ */
 
@@ -219,6 +390,7 @@ function touchConversation(conversation) {
   conversation.updatedAt = Date.now();
   store.conversations = [conversation, ...store.conversations.filter((c) => c.id !== conversation.id)];
   saveStore();
+  scheduleMetaSync(conversation);
 }
 
 function titleFrom(text) {
@@ -283,6 +455,9 @@ function deleteConversation(id) {
   store.conversations = store.conversations.filter((conversation) => conversation.id !== id);
   if (store.activeId === id) store.activeId = store.conversations[0]?.id ?? null;
   saveStore({ immediate: true });
+  // Suppression LOGIQUE côté serveur : la conversation disparaît de la vue
+  // de l'utilisateur mais l'historique en base est conservé (comme l'admin).
+  serverDeleteConversation(id);
   renderMessages();
   renderHistory();
   renderPersona();
@@ -292,6 +467,7 @@ function clearAllConversations() {
   if (busy) return;
   store = emptyStore();
   saveStore({ immediate: true });
+  serverDeleteAllConversations();
   renderMessages();
   renderHistory();
   renderPersona();
@@ -687,6 +863,7 @@ el.templateSelect?.addEventListener("change", () => {
   if (conversation && !busy) {
     conversation.template = el.templateSelect.value;
     touchConversation(conversation);
+    scheduleMetaSync(conversation, { immediate: true });
   }
   store.lastTemplate = el.templateSelect.value;
   saveStore();
@@ -698,6 +875,7 @@ el.modelSelect?.addEventListener("change", () => {
   if (conversation && !busy) {
     conversation.model = el.modelSelect.value;
     touchConversation(conversation);
+    scheduleMetaSync(conversation, { immediate: true });
   }
   store.lastModel = el.modelSelect.value;
   saveStore();
@@ -731,6 +909,7 @@ el.personaInput?.addEventListener("input", () => {
   if (!conversation) return;
   conversation.instructions = el.personaInput.value.slice(0, 4000);
   saveStore({ immediate: true });
+  scheduleMetaSync(conversation);
 });
 
 el.personaClear?.addEventListener("click", () => {
@@ -739,6 +918,7 @@ el.personaClear?.addEventListener("click", () => {
   if (conversation) {
     conversation.instructions = "";
     saveStore();
+    scheduleMetaSync(conversation, { immediate: true });
   }
 });
 
@@ -1179,6 +1359,7 @@ function startRename(item, id) {
       const value = input.value.trim().slice(0, 90);
       conversation.title = value || titleFrom(firstUserMessage(conversation));
       saveStore({ immediate: true });
+      scheduleMetaSync(conversation, { immediate: true });
     }
     renderHistory();
   };
@@ -1345,6 +1526,9 @@ function autoResize() {
 
 function buildPayload(conversation) {
   return {
+    // Identifiant du fil de discussion : le serveur rattache chaque message
+    // à cette conversation en base → l'historique survit aux déconnexions.
+    conversationId: conversation.id,
     messages: conversation.messages
       .slice(-CONTEXT_WINDOW)
       .map(({ role, content }) => ({ role, content })),
@@ -1628,6 +1812,9 @@ async function checkAuthStatus() {
       localStorage.setItem("venice_user", JSON.stringify(data.user));
       updateProfileUI(currentUser);
       checkUserAlert(currentUser);
+      // Historique persistant : recharge les conversations depuis la base de
+      // données (elles survivent aux déconnexions et aux changements d'appareil).
+      pullServerHistory();
     } else if (res.ok && data.authenticated === false) {
       // Session réellement expirée/invalide (vérifiée côté serveur).
       currentUser = null;
@@ -1783,6 +1970,8 @@ if (modalLoginForm) {
       updateProfileUI(currentUser);
       checkUserAlert(currentUser);
       closeAuthModal();
+      // Retrouve l'historique enregistré en base de données.
+      pullServerHistory();
 
       if (data.isAdmin || data.user?.role === "admin") {
         showToast("Connecté en tant qu'administrateur.", "Accès au panneau de gestion activé.", "icon-crown");
@@ -1851,6 +2040,8 @@ if (modalRegisterForm) {
       currentUser = data.user;
       updateProfileUI(currentUser);
       closeAuthModal();
+      // Retrouve l'historique enregistré en base de données.
+      pullServerHistory();
 
       if (pendingPrompt) {
         const text = pendingPrompt;

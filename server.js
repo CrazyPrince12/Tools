@@ -4,7 +4,7 @@
 //   • expose l'API de la passerelle (lib/httpApi.js) :
 //       POST /api/chat · GET /api/models · GET /api/templates
 //       GET /api/catalog · GET /api/health · POST /api/session/refresh
-//       Routes Auth (/api/auth/*) et Admin (/api/admin/*)
+//       Routes Auth (/api/auth/*), Historique (/api/history*) et Admin (/api/admin/*)
 //   • démarre la boucle de rafraîchissement du cookie Cloudflare
 //   • initialise la base de données Neon PostgreSQL / Local
 //
@@ -31,6 +31,10 @@ import {
   handleAuthMe,
   handleAuthLogout,
   handleAuthDismissAlert,
+  handleHistoryGet,
+  handleHistoryDeleteAll,
+  handleConversationUpsert,
+  handleConversationDelete,
   handleAdminStats,
   handleAdminUsers,
   handleAdminUserMessages,
@@ -190,6 +194,25 @@ export function createApp(env = process.env, runtime = createRuntime(env)) {
       }
       if (pathname === "/api/auth/dismiss-alert") {
         await handleAuthDismissAlert(req, res);
+        return;
+      }
+
+      // Historique utilisateur (persisté en base de données)
+      if (pathname === "/api/history" || pathname === "/api/history/") {
+        if (req.method === "DELETE") {
+          await handleHistoryDeleteAll(req, res);
+        } else {
+          await handleHistoryGet(req, res);
+        }
+        return;
+      }
+      if (pathname === "/api/history/conversation" || pathname === "/api/history/conversation/") {
+        await handleConversationUpsert(req, res);
+        return;
+      }
+      const conversationMatch = pathname.match(/^\/api\/history\/conversation\/([^/]+)$/);
+      if (conversationMatch) {
+        await handleConversationDelete(req, res, decodeURIComponent(conversationMatch[1]));
         return;
       }
 
