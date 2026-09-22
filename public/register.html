@@ -334,6 +334,18 @@
           throw new Error(data.error?.message || "Échec de l'inscription.");
         }
 
+        // Intimité : si un autre utilisateur était connecté sur ce
+        // navigateur, ses conversations locales ne doivent pas
+        // s'afficher (ni être supprimées) par le nouvel utilisateur.
+        try {
+          const previous = JSON.parse(localStorage.getItem("venice_user") || "null");
+          if (previous && previous.username && previous.username !== data.user.username) {
+            localStorage.removeItem("venice.store.v2");
+          }
+        } catch {
+          /* stockage indisponible */
+        }
+
         // Sauvegarde locale
         localStorage.setItem("venice_token", data.token);
         localStorage.setItem("venice_user", JSON.stringify(data.user));
